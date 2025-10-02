@@ -10,6 +10,7 @@ import discord
 from discord.ext import commands
 import logging
 from datetime import datetime
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -200,53 +201,11 @@ class InviteTracker(commands.Cog):
     
 
     
-    @commands.hybrid_command(name="list_staff_invites")
-    @commands.has_permissions(manage_guild=True)
-    async def list_staff_invites(self, ctx):
-        """List all configured staff invites"""
-        try:
-            # This would require a database method to get all staff configs
-            # For now, show current invites and their usage
-            invites = await ctx.guild.invites()
-            
-            embed = discord.Embed(
-                title="🔗 Staff Invite Links",
-                description="Current invite links and their usage",
-                color=discord.Color.blue(),
-                timestamp=datetime.now()
-            )
-            
-            for invite in invites:
-                if invite.inviter:
-                    # Check if this is a configured staff invite
-                    staff_config = self.bot.db.get_staff_config_by_invite(invite.code)
-                    if staff_config:
-                        embed.add_field(
-                            name=f"👤 {invite.inviter.display_name}",
-                            value=(
-                                f"**Code**: `{invite.code}`\n"
-                                f"**Uses**: {invite.uses}\n"
-                                f"**Link**: {invite.url}"
-                            ),
-                            inline=True
-                        )
-            
-            if len(embed.fields) == 0:
-                embed.add_field(
-                    name="📝 No Staff Invites",
-                    value="No staff invites configured yet. Staff invites are managed through the VIP upgrade system.",
-                    inline=False
-                )
-            
-            await ctx.send(embed=embed)
-            
-        except Exception as e:
-            logger.error(f"❌ Error listing staff invites: {e}")
-            await ctx.send(f"❌ Error: {str(e)}")
+
     
     @commands.hybrid_command(name="invite_stats")
     @commands.has_permissions(manage_guild=True)
-    async def invite_stats(self, ctx, staff_member: discord.Member = None):
+    async def invite_stats(self, ctx, staff_member: Optional[discord.Member] = None):
         """Show invite and VIP conversion stats for a staff member"""
         try:
             target = staff_member or ctx.author
