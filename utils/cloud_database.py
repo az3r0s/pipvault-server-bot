@@ -272,7 +272,7 @@ class CloudAPIServerDatabase:
             return None
     
     def create_vip_request(self, user_id: int, username: str, request_type: str, 
-                          attributed_staff: str, staff_ib_code: str) -> int:
+                          staff_id: int, request_data: str) -> int:
         """Create a new VIP upgrade request"""
         try:
             conn = self.get_connection()
@@ -281,15 +281,16 @@ class CloudAPIServerDatabase:
             cursor.execute('''
                 INSERT INTO vip_requests (user_id, username, request_type, staff_id, status, request_data, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (user_id, username, request_type, 0, 'pending', 
-                  json.dumps({'attributed_staff': attributed_staff, 'staff_ib_code': staff_ib_code}),
-                  datetime.now()))
+            ''', (user_id, username, request_type, staff_id, 'pending', request_data, datetime.now()))
             
             request_id = cursor.lastrowid or 0
             conn.commit()
             conn.close()
             
-            logger.info(f"✅ Created VIP request {request_id} for {attributed_staff}")
+            # Trigger immediate cloud backup
+            self.trigger_backup()
+            
+            logger.info(f"✅ Created VIP request {request_id} for staff ID {staff_id}")
             return request_id
             
         except Exception as e:
