@@ -696,6 +696,27 @@ class VIPUpgrade(commands.Cog):
             logger.error(f"❌ Error adding staff invite: {e}")
             await interaction.response.send_message(f"❌ Error: {str(e)}", ephemeral=True)
     
+    @app_commands.command(name="debug_staff_database", description="[ADMIN] Debug staff invites database")
+    async def debug_staff_database(self, interaction: discord.Interaction):
+        """Debug staff invites database"""
+        if not (isinstance(interaction.user, discord.Member) and interaction.user.guild_permissions.administrator):
+            await interaction.response.send_message("❌ You need administrator permissions to use this command.", ephemeral=True)
+            return
+        
+        try:
+            debug_info = self.bot.db.debug_staff_invites_table()
+            
+            embed = discord.Embed(
+                title="🔍 Database Debug Info",
+                description=debug_info,
+                color=discord.Color.blue()
+            )
+            
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Error: {str(e)}", ephemeral=True)
+    
     @app_commands.command(name="cleanup_unauthorized_invites", description="[ADMIN] Remove invites not created by staff")
     async def cleanup_unauthorized_invites(self, interaction: discord.Interaction):
         """Clean up invites that weren't created by authorized staff"""

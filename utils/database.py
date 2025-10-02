@@ -8,7 +8,8 @@ Handles database operations for server management features including:
 - Staff attribution and referral tracking
 """
 
-import sqlite3
+import psycopg2
+import psycopg2.extras
 import logging
 from datetime import datetime
 from typing import Optional, Dict, List, Tuple
@@ -20,8 +21,10 @@ logger = logging.getLogger(__name__)
 class ServerDatabase:
     """Database manager for server bot features"""
     
-    def __init__(self, db_path: str = "server_management.db"):
-        self.db_path = db_path
+    def __init__(self, db_url: Optional[str] = None):
+        self.db_url = db_url or os.getenv('DATABASE_URL')
+        if not self.db_url:
+            raise ValueError("DATABASE_URL environment variable not set")
         self.config_path = os.path.join(os.path.dirname(__file__), "..", "config", "staff_config.json")
         self.init_database()
         self.load_staff_config()
@@ -179,6 +182,10 @@ class ServerDatabase:
                     cursor = conn.cursor()
                     cursor.execute('SELECT invite_code FROM staff_invites WHERE staff_id = ?', (discord_id,))
                     row = cursor.fetchone()
+                    
+                    # Debug logging
+                    logger.info(f"Debug: Checking staff {username} ({discord_id}) - DB result: {row}")
+                    
                     conn.close()
                     
                     invite_code = row[0] if row and row[0] else None
@@ -193,6 +200,27 @@ class ServerDatabase:
     def manually_add_staff_invite(self, discord_id: int, invite_code: str) -> bool:
         """Manually add existing staff invite codes that weren't saved properly"""
         return self.update_staff_invite_code(discord_id, invite_code)
+    
+    def debug_staff_invites_table(self) -> str:
+        """Debug method to see all data in staff_invites table"""
+        try:
+            conn = sqlite3.connect(self.db_path, timeout=10.0)
+            cursor = conn.cursor()
+            cursor.execute('SELECT * FROM staff_invites')
+            rows = cursor.fetchall()
+            conn.close()
+            
+            if not rows:
+                return "❌ No data in staff_invites table"
+            
+            result = "📊 Staff Invites Table Contents:\n"
+            for row in rows:
+                result += f"• Staff ID: {row[0]}, Username: {row[1]}, Invite: {row[2]}\n"
+            
+            return result
+            
+        except Exception as e:
+            return f"❌ Error reading staff_invites table: {e}"
 
     def record_user_join(self, user_id: int, username: str, invite_code: str,
                         inviter_id: int, inviter_username: str, 

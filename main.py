@@ -29,6 +29,7 @@ from discord.ext.commands import Bot
 # Import local utilities
 from constants import Colors, Emojis
 from utils.database import ServerDatabase
+from utils.postgres_database import PostgreSQLServerDatabase
 
 # Configure logging
 logging.basicConfig(
@@ -59,8 +60,19 @@ class ZinraiServerBot(commands.Bot):
             help_command=None
         )
         
-        # Initialize database
-        self.db = ServerDatabase()
+        # Initialize database (use PostgreSQL if DATABASE_URL is available, else SQLite)
+        try:
+            if os.getenv('DATABASE_URL') or os.getenv('DATABASE_PRIVATE_URL'):
+                self.db = PostgreSQLServerDatabase()
+                logger.info("✅ Using PostgreSQL database for persistence")
+            else:
+                self.db = ServerDatabase()
+                logger.info("⚠️ Using SQLite database (not persistent on Railway)")
+        except Exception as e:
+            logger.error(f"❌ Database initialization failed: {e}")
+            # Fallback to SQLite
+            self.db = ServerDatabase()
+            logger.info("📦 Fallback to SQLite database")
         
         # Configuration
         self.GUILD_ID = int(os.getenv('DISCORD_GUILD_ID', '0'))

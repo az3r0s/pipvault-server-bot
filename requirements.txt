@@ -17,3 +17,6 @@ requests>=2.28.0
 
 # Utility libraries
 typing-extensions>=4.0.0
+
+# PostgreSQL database support for Railway persistence
+psycopg2-binary>=2.9.0
