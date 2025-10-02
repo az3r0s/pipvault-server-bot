@@ -148,9 +148,9 @@ class ZinraiServerBot(commands.Bot):
 async def main():
     """Main entry point"""
     # Check for required environment variables
-    token = os.getenv('SERVER_BOT_TOKEN')
+    token = os.getenv('DISCORD_BOT_TOKEN')
     if not token:
-        logger.error("❌ SERVER_BOT_TOKEN environment variable not set!")
+        logger.error("❌ DISCORD_BOT_TOKEN environment variable not set!")
         return
     
     guild_id = os.getenv('DISCORD_GUILD_ID')
