@@ -29,7 +29,7 @@ from discord.ext.commands import Bot
 # Import local utilities
 from constants import Colors, Emojis
 from utils.database import ServerDatabase
-from utils.postgres_database import PostgreSQLServerDatabase
+from utils.cloud_database import CloudAPIServerDatabase
 
 # Configure logging
 logging.basicConfig(
@@ -60,11 +60,12 @@ class ZinraiServerBot(commands.Bot):
             help_command=None
         )
         
-        # Initialize database (use PostgreSQL if DATABASE_URL is available, else SQLite)
+        # Initialize database (use Cloud API if available, else SQLite only)
         try:
-            if os.getenv('DATABASE_URL') or os.getenv('DATABASE_PRIVATE_URL'):
-                self.db = PostgreSQLServerDatabase()
-                logger.info("✅ Using PostgreSQL database for persistence")
+            cloud_url = os.getenv('CLOUD_API_URL', 'https://web-production-1299f.up.railway.app')
+            if cloud_url:
+                self.db = CloudAPIServerDatabase(cloud_url)
+                logger.info("✅ Using Cloud API database for persistence")
             else:
                 self.db = ServerDatabase()
                 logger.info("⚠️ Using SQLite database (not persistent on Railway)")
@@ -95,6 +96,17 @@ class ZinraiServerBot(commands.Bot):
                 logger.info(f"✅ Loaded cog: {cog}")
             except Exception as e:
                 logger.error(f"❌ Failed to load cog {cog}: {e}")
+        
+        # Initialize cloud database if using CloudAPIServerDatabase
+        if hasattr(self.db, 'restore_from_cloud'):
+            try:
+                await self.db.restore_from_cloud()
+                logger.info("✅ Restored data from cloud API")
+                # Start periodic backup task
+                self.loop.create_task(self.db.periodic_backup())
+                logger.info("✅ Started periodic cloud backup")
+            except Exception as e:
+                logger.error(f"❌ Cloud database setup failed: {e}")
         
         # Sync slash commands
         try:
