@@ -329,7 +329,7 @@ class CloudAPIServerDatabase:
             conn.close()
             
             # Send to cloud API
-            backup_endpoint = f"{self.cloud_base_url}/backup_server_data"
+            backup_endpoint = f"{self.cloud_base_url}/backup_complete_database"
             response = requests.post(backup_endpoint, json=backup_data, timeout=30)
             
             if response.status_code == 200:
@@ -348,7 +348,7 @@ class CloudAPIServerDatabase:
             
         try:
             # Get data from cloud API
-            restore_endpoint = f"{self.cloud_base_url}/restore_server_data"
+            restore_endpoint = f"{self.cloud_base_url}/get_complete_database_backup"
             response = requests.get(restore_endpoint, timeout=30)
             
             if response.status_code != 200:
@@ -623,7 +623,7 @@ class CloudAPIServerDatabase:
             conn.close()
             
             # Send to cloud API
-            backup_endpoint = f"{self.cloud_base_url}/backup_server_data"
+            backup_endpoint = f"{self.cloud_base_url}/backup_complete_database"
             response = requests.post(backup_endpoint, json=backup_data, timeout=10)
             
             if response.status_code == 200:
