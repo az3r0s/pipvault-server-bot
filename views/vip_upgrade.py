@@ -362,31 +362,44 @@ class VantageAccountView(discord.ui.View):
             else:
                 staff_config = None
             
-            # If no staff config found, use default staff_member_1
+            # If no staff config found, use first available staff member as fallback
             if not staff_config:
                 config = db.load_staff_config()
-                default_staff = config["staff_members"].get("staff_member_1")
-                if default_staff:
-                    staff_config = default_staff
-                    # Create fake invite info for tracking
-                    invite_info = {
-                        'invite_code': 'default_fallback',
-                        'inviter_username': default_staff['username']
-                    }
+                if "staff_members" in config and config["staff_members"]:
+                    # Get first available staff member as fallback
+                    for staff_key, staff_info in config["staff_members"].items():
+                        staff_config = staff_info
+                        # Create fake invite info for tracking
+                        if not invite_info:
+                            invite_info = {
+                                'invite_code': 'default_fallback',
+                                'inviter_username': staff_info.get('username', 'Unknown Staff')
+                            }
+                        break
             
             if not staff_config:
                 embed = discord.Embed(
                     title="⚠️ Configuration Missing",
-                    description=f"No VIP configuration found for invite `{invite_info['invite_code']}`. Please contact an admin.",
+                    description="No staff configuration found. Please contact an admin to set up the VIP system.",
                     color=discord.Color.orange()
+                )
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+                return
+            
+            # Final safety check
+            if not isinstance(staff_config, dict) or 'discord_id' not in staff_config:
+                embed = discord.Embed(
+                    title="⚠️ Configuration Error",
+                    description="Invalid staff configuration. Please contact an admin.",
+                    color=discord.Color.red()
                 )
                 await interaction.response.send_message(embed=embed, ephemeral=True)
                 return
             
             # Create VIP request in database
             request_data = json.dumps({
-                'invite_code': invite_info['invite_code'],
-                'inviter': invite_info['inviter_username'],
+                'invite_code': invite_info['invite_code'] if invite_info else 'default_fallback',
+                'inviter': invite_info['inviter_username'] if invite_info else 'Unknown',
                 'request_type': 'existing_account'
             })
             
@@ -477,31 +490,44 @@ class VantageAccountView(discord.ui.View):
             else:
                 staff_config = None
             
-            # If no staff config found, use default staff_member_1
+            # If no staff config found, use first available staff member as fallback
             if not staff_config:
                 config = db.load_staff_config()
-                default_staff = config["staff_members"].get("staff_member_1")
-                if default_staff:
-                    staff_config = default_staff
-                    # Create fake invite info for tracking
-                    invite_info = {
-                        'invite_code': 'default_fallback',
-                        'inviter_username': default_staff['username']
-                    }
+                if "staff_members" in config and config["staff_members"]:
+                    # Get first available staff member as fallback
+                    for staff_key, staff_info in config["staff_members"].items():
+                        staff_config = staff_info
+                        # Create fake invite info for tracking
+                        if not invite_info:
+                            invite_info = {
+                                'invite_code': 'default_fallback',
+                                'inviter_username': staff_info.get('username', 'Unknown Staff')
+                            }
+                        break
             
             if not staff_config:
                 embed = discord.Embed(
                     title="⚠️ Configuration Missing",
-                    description=f"No VIP configuration found for invite `{invite_info['invite_code']}`. Please contact an admin.",
+                    description="No staff configuration found. Please contact an admin to set up the VIP system.",
                     color=discord.Color.orange()
+                )
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+                return
+            
+            # Final safety check
+            if not isinstance(staff_config, dict) or 'discord_id' not in staff_config:
+                embed = discord.Embed(
+                    title="⚠️ Configuration Error",
+                    description="Invalid staff configuration. Please contact an admin.",
+                    color=discord.Color.red()
                 )
                 await interaction.response.send_message(embed=embed, ephemeral=True)
                 return
             
             # Create VIP request in database
             request_data = json.dumps({
-                'invite_code': invite_info['invite_code'],
-                'inviter': invite_info['inviter_username'],
+                'invite_code': invite_info['invite_code'] if invite_info else 'default_fallback',
+                'inviter': invite_info['inviter_username'] if invite_info else 'Unknown',
                 'request_type': 'new_account'
             })
             
