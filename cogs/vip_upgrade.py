@@ -675,26 +675,25 @@ class VIPUpgrade(commands.Cog):
                 return
             all_invites = await guild.invites()
             
-            # Get authorized staff member IDs
+            # Get authorized staff invite codes (only bot-generated staff invites)
             config = self.bot.db.load_staff_config()
-            authorized_staff = set()
+            authorized_invite_codes = set()
             if config and 'staff_members' in config:
                 for staff_info in config['staff_members'].values():
-                    authorized_staff.add(staff_info['discord_id'])
+                    if staff_info.get('invite_code'):
+                        authorized_invite_codes.add(staff_info['invite_code'])
             
-            # Add bot itself as authorized
-            authorized_staff.add(self.bot.user.id)
-            
-            # Find unauthorized invites
+            # Find unauthorized invites (everything except bot-generated staff invites)
             unauthorized_invites = []
             staff_invites = []
             
             for invite in all_invites:
-                if invite.inviter:
-                    if invite.inviter.id in authorized_staff:
-                        staff_invites.append(invite)
-                    elif not (isinstance(invite.inviter, discord.Member) and invite.inviter.guild_permissions.administrator):
-                        unauthorized_invites.append(invite)
+                if invite.code in authorized_invite_codes and invite.inviter and invite.inviter.id == self.bot.user.id:
+                    # This is a bot-generated staff invite - keep it
+                    staff_invites.append(invite)
+                else:
+                    # This is unauthorized - remove it (including admin-created invites)
+                    unauthorized_invites.append(invite)
             
             # Show confirmation embed
             embed = discord.Embed(
@@ -704,14 +703,14 @@ class VIPUpgrade(commands.Cog):
             )
             
             embed.add_field(
-                name="✅ Authorized Invites (Will Keep)",
-                value=f"{len(staff_invites)} staff/admin invites found",
+                name="✅ Bot-Generated Staff Invites (Will Keep)",
+                value=f"{len(staff_invites)} official staff invites found",
                 inline=True
             )
             
             embed.add_field(
-                name="❌ Unauthorized Invites (Will Remove)",
-                value=f"{len(unauthorized_invites)} unauthorized invites found",
+                name="❌ All Other Invites (Will Remove)",
+                value=f"{len(unauthorized_invites)} non-staff invites found\n*(Including admin-created invites)*",
                 inline=True
             )
             
@@ -724,7 +723,7 @@ class VIPUpgrade(commands.Cog):
                     unauthorized_list.append(f"• ...and {len(unauthorized_invites) - 5} more")
                 
                 embed.add_field(
-                    name="📋 Unauthorized Invites to Remove",
+                    name="📋 Invites to Remove (All Non-Staff)",
                     value="\n".join(unauthorized_list),
                     inline=False
                 )
@@ -735,7 +734,7 @@ class VIPUpgrade(commands.Cog):
             else:
                 embed.add_field(
                     name="🎉 All Clean!",
-                    value="No unauthorized invites found. All invites are from staff or administrators.",
+                    value="No unauthorized invites found. All invites are official bot-generated staff invites.",
                     inline=False
                 )
                 await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -751,7 +750,7 @@ class InviteCleanupConfirmView(discord.ui.View):
         super().__init__(timeout=300)  # 5 minute timeout
         self.unauthorized_invites = unauthorized_invites
     
-    @discord.ui.button(label="🗑️ Remove Unauthorized Invites", style=discord.ButtonStyle.danger)
+    @discord.ui.button(label="🗑️ Remove All Non-Staff Invites", style=discord.ButtonStyle.danger)
     async def confirm_cleanup(self, interaction: discord.Interaction, button: discord.ui.Button):
         """Confirm and execute invite cleanup"""
         try:
@@ -767,7 +766,7 @@ class InviteCleanupConfirmView(discord.ui.View):
             
             embed = discord.Embed(
                 title="✅ Invite Cleanup Complete",
-                description=f"Successfully removed {removed_count} unauthorized invites",
+                description=f"Successfully removed {removed_count} non-staff invites\n\n**Only bot-generated staff invites remain**",
                 color=discord.Color.green()
             )
             
@@ -788,7 +787,11 @@ class InviteCleanupConfirmView(discord.ui.View):
             await interaction.response.edit_message(embed=embed, view=self)
             
         except Exception as e:
-            await interaction.response.send_message(f"❌ Error during cleanup: {str(e)}", ephemeral=True)
+            try:
+                await interaction.response.send_message(f"❌ Error during cleanup: {str(e)}", ephemeral=True)
+            except:
+                # If response failed, try followup
+                await interaction.followup.send(f"❌ Error during cleanup: {str(e)}", ephemeral=True)
     
     @discord.ui.button(label="❌ Cancel", style=discord.ButtonStyle.secondary)
     async def cancel_cleanup(self, interaction: discord.Interaction, button: discord.ui.Button):

@@ -1,17 +1,24 @@
 {
   "staff_members": {
-    "staff_member_1": {
+    "Aidan": {
       "discord_id": 243819020040536065,
       "username": "thegoldtradingresults",
       "vantage_referral_link": "https://www.vantagemarkets.com/open-live-account/?affid=NzQ3MDMyMA==",
       "vantage_ib_code": "7470320",
       "invite_code": null
     },
-    "staff_member_2": {
+    "Travis": {
       "discord_id": 316652790560587776,
       "username": "tpenn02",
       "vantage_referral_link": "https://www.vantagemarkets.com/open-live-account/?affid=NzQ3MDI3Mg==",
       "vantage_ib_code": "7470272",
+      "invite_code": null
+    },
+    "Cyril": {
+      "discord_id": 968961696133705749,
+      "username": "cyril2771753",
+      "vantage_referral_link": "https://vigco.co/ArqURv",
+      "vantage_ib_code": "112077",
       "invite_code": null
     }
   },
