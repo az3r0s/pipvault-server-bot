@@ -67,12 +67,12 @@ class ZinraiServerBot(commands.Bot):
                 self.db = CloudAPIServerDatabase(cloud_url)
                 logger.info("✅ Using Cloud API database for persistence")
             else:
-                self.db = ServerDatabase()
+                self.db = ServerDatabase("server_management.db")
                 logger.info("⚠️ Using SQLite database (not persistent on Railway)")
         except Exception as e:
             logger.error(f"❌ Database initialization failed: {e}")
             # Fallback to SQLite
-            self.db = ServerDatabase()
+            self.db = ServerDatabase("server_management.db")
             logger.info("📦 Fallback to SQLite database")
         
         # Configuration

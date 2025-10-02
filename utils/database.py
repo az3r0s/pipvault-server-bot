@@ -8,8 +8,7 @@ Handles database operations for server management features including:
 - Staff attribution and referral tracking
 """
 
-import psycopg2
-import psycopg2.extras
+import sqlite3
 import logging
 from datetime import datetime
 from typing import Optional, Dict, List, Tuple
@@ -21,10 +20,8 @@ logger = logging.getLogger(__name__)
 class ServerDatabase:
     """Database manager for server bot features"""
     
-    def __init__(self, db_url: Optional[str] = None):
-        self.db_url = db_url or os.getenv('DATABASE_URL')
-        if not self.db_url:
-            raise ValueError("DATABASE_URL environment variable not set")
+    def __init__(self, db_path: str = "server_management.db"):
+        self.db_path = db_path
         self.config_path = os.path.join(os.path.dirname(__file__), "..", "config", "staff_config.json")
         self.init_database()
         self.load_staff_config()
