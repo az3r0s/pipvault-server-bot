@@ -1,0 +1,31 @@
+{
+  "staff_members": {
+    "staff_member_1": {
+      "discord_id": 243819020040536065,
+      "username": "thegoldtradingresults",
+      "vantage_referral_link": "https://www.vantagemarkets.com/open-live-account/?affid=NzQ3MDMyMA==",
+      "vantage_ib_code": "7470320",
+      "invite_code": null
+    },
+    "staff_member_2": {
+      "discord_id": 316652790560587776,
+      "username": "tpenn02",
+      "vantage_referral_link": "https://www.vantagemarkets.com/open-live-account/?affid=NzQ3MDI3Mg==",
+      "vantage_ib_code": "7470272",
+      "invite_code": null
+    }
+  },
+  "email_template": {
+    "recipient": "Hadi.saab@vantagemarkets.com",
+    "subject": "EGN",
+    "body_template": "Hi I am a member of EGN,\n\nPlease move my account under IB {ib_code}.\n\nName:\nEmail:\nLive vantage acc number:\n\nKind regards,\n\nName."
+  },
+  "channels": {
+    "vip_upgrade_channel": "1420009598709923963",
+    "vip_tickets_channel": "1423246972617490473",
+    "staff_notifications_channel": "1423246972617490473"
+  },
+  "roles": {
+    "vip_role": "1401614579850543206"
+  }
+}
