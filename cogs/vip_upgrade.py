@@ -39,8 +39,25 @@ class VIPUpgrade(commands.Cog):
     async def setup_sticky_embed(self, channel):
         """Set up the sticky embed in VIP upgrade channel"""
         try:
-            # Clear old messages (optional - remove if you want to keep history)
-            # await channel.purge(limit=10)
+            # Check if sticky embed already exists
+            async for message in channel.history(limit=50):
+                if message.author == self.bot.user and message.embeds:
+                    embed = message.embeds[0]
+                    if embed.title == "👑 VIP Upgrade Center":
+                        logger.info(f"✅ VIP upgrade sticky embed already exists in {channel.name}")
+                        return message
+            
+            # Clear old bot messages to avoid duplicates
+            messages_to_delete = []
+            async for message in channel.history(limit=20):
+                if message.author == self.bot.user:
+                    messages_to_delete.append(message)
+            
+            for message in messages_to_delete:
+                try:
+                    await message.delete()
+                except:
+                    pass
             
             # Create the main VIP upgrade embed
             embed = discord.Embed(
@@ -312,12 +329,23 @@ class VIPUpgrade(commands.Cog):
                 )
                 return
             
-            # Create permanent invite (ensure we're in a guild channel)
-            if not interaction.guild or not isinstance(interaction.channel, (discord.TextChannel, discord.VoiceChannel)):
-                await interaction.response.send_message("❌ This command must be run in a server text channel", ephemeral=True)
+            # Create permanent server invite using first available channel
+            if not interaction.guild:
+                await interaction.response.send_message("❌ This command must be run in a server", ephemeral=True)
+                return
+            
+            # Find the first text channel to create invite from
+            invite_channel = None
+            for channel in interaction.guild.text_channels:
+                if channel.permissions_for(interaction.guild.me).create_instant_invite:
+                    invite_channel = channel
+                    break
+            
+            if not invite_channel:
+                await interaction.response.send_message("❌ Cannot create invite - no suitable channel found", ephemeral=True)
                 return
                 
-            invite = await interaction.channel.create_invite(
+            invite = await invite_channel.create_invite(
                 max_age=0,  # Never expires
                 max_uses=0,  # Unlimited uses
                 temporary=False,  # Permanent membership

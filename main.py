@@ -74,6 +74,7 @@ class ZinraiServerBot(commands.Bot):
         cogs_to_load = [
             'cogs.vip_upgrade',
             'cogs.invite_tracker',
+            'cogs.embed_management',
         ]
         
         for cog in cogs_to_load:
