@@ -328,9 +328,10 @@ class CloudAPIServerDatabase:
             
             conn.close()
             
-            # Send to cloud API
-            backup_endpoint = f"{self.cloud_base_url}/backup_complete_database"
-            response = requests.post(backup_endpoint, json=backup_data, timeout=30)
+            # Send to cloud API using discord_data format
+            backup_endpoint = f"{self.cloud_base_url}/backup_discord_data"
+            payload = {'discord_data': backup_data}
+            response = requests.post(backup_endpoint, json=payload, timeout=30)
             
             if response.status_code == 200:
                 logger.info("✅ Successfully backed up staff data to cloud API")
@@ -348,14 +349,15 @@ class CloudAPIServerDatabase:
             
         try:
             # Get data from cloud API
-            restore_endpoint = f"{self.cloud_base_url}/get_complete_database_backup"
+            restore_endpoint = f"{self.cloud_base_url}/get_discord_data_backup"
             response = requests.get(restore_endpoint, timeout=30)
             
             if response.status_code != 200:
                 logger.warning(f"No cloud data to restore: {response.status_code}")
                 return
                 
-            backup_data = response.json()
+            response_data = response.json()
+            backup_data = response_data.get('discord_data', {})
             
             # Restore to local SQLite
             conn = sqlite3.connect(self.db_path)
@@ -622,9 +624,10 @@ class CloudAPIServerDatabase:
             
             conn.close()
             
-            # Send to cloud API
-            backup_endpoint = f"{self.cloud_base_url}/backup_complete_database"
-            response = requests.post(backup_endpoint, json=backup_data, timeout=10)
+            # Send to cloud API using discord_data format
+            backup_endpoint = f"{self.cloud_base_url}/backup_discord_data"
+            payload = {'discord_data': backup_data}
+            response = requests.post(backup_endpoint, json=payload, timeout=10)
             
             if response.status_code == 200:
                 logger.info("✅ Immediate backup to cloud API successful")
