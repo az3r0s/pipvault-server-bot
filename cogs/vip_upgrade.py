@@ -16,7 +16,7 @@ import json
 from datetime import datetime
 import os
 
-from server_bot.views.vip_upgrade import VIPUpgradeView
+from views.vip_upgrade import VIPUpgradeView
 
 logger = logging.getLogger(__name__)
 

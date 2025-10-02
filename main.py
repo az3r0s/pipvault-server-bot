@@ -26,9 +26,9 @@ import discord
 from discord.ext import commands
 from discord.ext.commands import Bot
 
-# Import shared utilities from parent trading bot
-from shared.constants import Colors, Emojis
-from server_bot.utils.database import ServerDatabase
+# Import local utilities
+from constants import Colors, Emojis
+from utils.database import ServerDatabase
 
 # Configure logging
 logging.basicConfig(
@@ -72,8 +72,8 @@ class ZinraiServerBot(commands.Bot):
         
         # Load cogs
         cogs_to_load = [
-            'server_bot.cogs.vip_upgrade',
-            'server_bot.cogs.invite_tracker',
+            'cogs.vip_upgrade',
+            'cogs.invite_tracker',
         ]
         
         for cog in cogs_to_load:

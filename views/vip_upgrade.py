@@ -81,7 +81,7 @@ class VantageAccountView(discord.ui.View):
         """Handle existing account flow"""
         try:
             # Get user's invite information
-            from server_bot.utils.database import ServerDatabase
+            from utils.database import ServerDatabase
             db = ServerDatabase()
             invite_info = db.get_user_invite_info(interaction.user.id)
             
@@ -132,7 +132,7 @@ class VantageAccountView(discord.ui.View):
                 return
             
             # Get email template from config
-            from server_bot.utils.database import ServerDatabase
+            from utils.database import ServerDatabase
             db = ServerDatabase()
             config = db.load_staff_config()
             
@@ -192,7 +192,7 @@ class VantageAccountView(discord.ui.View):
         """Handle new account flow"""
         try:
             # Get user's invite information
-            from server_bot.utils.database import ServerDatabase
+            from utils.database import ServerDatabase
             db = ServerDatabase()
             invite_info = db.get_user_invite_info(interaction.user.id)
             
@@ -308,7 +308,7 @@ class EmailSentView(discord.ui.View):
         else:
             # Original flow without proof requirement
             try:
-                from server_bot.utils.database import ServerDatabase
+                from utils.database import ServerDatabase
                 db = ServerDatabase()
                 success = db.update_vip_request_status(self.request_id, 'email_sent')
                 
@@ -372,7 +372,7 @@ class EmailProofModal(discord.ui.Modal):
             embed.set_footer(text=f"Request ID: {self.request_id}")
             
             # Update status to awaiting proof
-            from server_bot.utils.database import ServerDatabase
+            from utils.database import ServerDatabase
             db = ServerDatabase()
             db.update_vip_request_status(self.request_id, 'awaiting_proof')
             
@@ -453,7 +453,7 @@ class VantageEmailModal(discord.ui.Modal):
                 return
             
             # Update request with email and set to pending verification
-            from server_bot.utils.database import ServerDatabase
+            from utils.database import ServerDatabase
             db = ServerDatabase()
             success = db.update_vip_request_status(self.request_id, 'account_created', email)
             
