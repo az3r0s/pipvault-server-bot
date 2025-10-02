@@ -80,7 +80,7 @@ class VIPUpgradeView(discord.ui.View):
                 inline=False
             )
             
-            view = VantageAccountView(interaction.user.id)
+            view = VantageAccountView(interaction.user.id, interaction.client)
             await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
             
         except Exception as e:
@@ -90,9 +90,10 @@ class VIPUpgradeView(discord.ui.View):
 class VantageAccountView(discord.ui.View):
     """View for existing Vantage account question"""
     
-    def __init__(self, user_id: int):
+    def __init__(self, user_id: int, bot=None):
         super().__init__(timeout=300)  # 5 minute timeout
         self.user_id = user_id
+        self.bot = bot
     
     @discord.ui.button(
         label="✅ Yes, I have an account", 
@@ -103,8 +104,8 @@ class VantageAccountView(discord.ui.View):
         """Handle existing account flow"""
         try:
             # Get user's invite information
-            from utils.database import ServerDatabase
-            db = ServerDatabase()
+            # Use the bot's database instance instead of creating a new one
+            db = self.bot.db
             invite_info = db.get_user_invite_info(interaction.user.id)
             
             # Get staff configuration - fallback to default if no invite found
@@ -218,8 +219,8 @@ class VantageAccountView(discord.ui.View):
         """Handle new account flow"""
         try:
             # Get user's invite information
-            from utils.database import ServerDatabase
-            db = ServerDatabase()
+            # Use the bot's database instance instead of creating a new one
+            db = self.bot.db
             invite_info = db.get_user_invite_info(interaction.user.id)
             
             # Get staff configuration - fallback to default if no invite found

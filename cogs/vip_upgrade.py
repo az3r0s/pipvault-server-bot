@@ -387,8 +387,6 @@ class VIPUpgrade(commands.Cog):
                 # Send the invite link as a separate message for easy copying
                 await interaction.followup.send(f"🔗 **Invite Link for Easy Copying:**\n{invite.url}", ephemeral=True)
                 
-                await interaction.response.send_message(embed=embed, ephemeral=True)
-                
                 # Send DM to staff member with their invite link
                 try:
                     dm_embed = discord.Embed(
