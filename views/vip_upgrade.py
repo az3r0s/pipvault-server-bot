@@ -123,7 +123,7 @@ class VantageAccountView(discord.ui.View):
                 user_id=interaction.user.id,
                 username=f"{interaction.user.name}#{interaction.user.discriminator}",
                 request_type='existing_account',
-                staff_id=staff_config['staff_id'],
+                staff_id=staff_config['discord_id'],
                 request_data=request_data
             )
             
@@ -234,7 +234,7 @@ class VantageAccountView(discord.ui.View):
                 user_id=interaction.user.id,
                 username=f"{interaction.user.name}#{interaction.user.discriminator}",
                 request_type='new_account',
-                staff_id=staff_config['staff_id'],
+                staff_id=staff_config['discord_id'],
                 request_data=request_data
             )
             
