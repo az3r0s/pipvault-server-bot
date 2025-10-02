@@ -780,10 +780,21 @@ class InviteCleanupConfirmView(discord.ui.View):
         super().__init__(timeout=300)  # 5 minute timeout
         self.unauthorized_invites = unauthorized_invites
     
+    async def on_timeout(self):
+        """Handle view timeout"""
+        for item in self.children:
+            try:
+                item.disabled = True
+            except AttributeError:
+                pass
+    
     @discord.ui.button(label="🗑️ Remove All Non-Staff Invites", style=discord.ButtonStyle.danger)
     async def confirm_cleanup(self, interaction: discord.Interaction, button: discord.ui.Button):
         """Confirm and execute invite cleanup"""
         try:
+            # Acknowledge the interaction immediately
+            await interaction.response.defer(ephemeral=True)
+            
             removed_count = 0
             errors = []
             
@@ -814,30 +825,44 @@ class InviteCleanupConfirmView(discord.ui.View):
                 except AttributeError:
                     pass
             
-            await interaction.response.edit_message(embed=embed, view=self)
+            # Use followup instead of response since we already deferred
+            if interaction.message:
+                await interaction.followup.edit_message(interaction.message.id, embed=embed, view=self)
+            else:
+                await interaction.followup.send(embed=embed, ephemeral=True)
             
         except Exception as e:
+            logger.error(f"Error during cleanup: {e}")
             try:
-                await interaction.response.send_message(f"❌ Error during cleanup: {str(e)}", ephemeral=True)
-            except:
-                # If response failed, try followup
                 await interaction.followup.send(f"❌ Error during cleanup: {str(e)}", ephemeral=True)
+            except Exception as followup_error:
+                logger.error(f"Failed to send followup error message: {followup_error}")
     
     @discord.ui.button(label="❌ Cancel", style=discord.ButtonStyle.secondary)
     async def cancel_cleanup(self, interaction: discord.Interaction, button: discord.ui.Button):
         """Cancel the cleanup"""
-        embed = discord.Embed(
-            title="❌ Cleanup Cancelled",
-            description="No invites were removed.",
-            color=discord.Color.red()
-        )
-        
-        # Disable the view
-        for item in self.children:
-            if hasattr(item, 'disabled'):
-                item.disabled = True
-        
-        await interaction.response.edit_message(embed=embed, view=self)
+        try:
+            embed = discord.Embed(
+                title="❌ Cleanup Cancelled",
+                description="No invites were removed.",
+                color=discord.Color.red()
+            )
+            
+            # Disable the view
+            for item in self.children:
+                try:
+                    item.disabled = True
+                except AttributeError:
+                    pass
+            
+            await interaction.response.edit_message(embed=embed, view=self)
+            
+        except Exception as e:
+            logger.error(f"Error cancelling cleanup: {e}")
+            try:
+                await interaction.response.send_message("❌ Cleanup cancelled", ephemeral=True)
+            except:
+                pass
 
 async def setup(bot):
     await bot.add_cog(VIPUpgrade(bot))
