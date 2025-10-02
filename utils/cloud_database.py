@@ -407,6 +407,181 @@ class CloudAPIServerDatabase:
         except Exception as e:
             logger.error(f"❌ Error restoring from cloud: {e}")
     
+    def get_staff_by_discord_id(self, discord_id: int) -> Optional[Dict]:
+        """Get staff member info by Discord ID"""
+        config = self.load_staff_config()
+        for staff_key, staff_info in config["staff_members"].items():
+            if staff_info["discord_id"] == discord_id:
+                return staff_info
+        return None
+
+    def add_staff_invite_config(self, staff_id: int, staff_username: str, 
+                               invite_code: str, vantage_referral_link: str,
+                               vantage_ib_code: str, email_template: str) -> bool:
+        """Add or update staff invite configuration"""
+        try:
+            conn = sqlite3.connect(self.db_path, timeout=10.0)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                INSERT OR REPLACE INTO staff_invites 
+                (staff_id, staff_username, invite_code, vantage_referral_link, 
+                 vantage_ib_code, email_template, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (staff_id, staff_username, invite_code, vantage_referral_link,
+                  vantage_ib_code, email_template, datetime.now()))
+            
+            conn.commit()
+            conn.close()
+            
+            logger.info(f"✅ Updated staff invite config for {staff_username}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Error updating staff invite config: {e}")
+            return False
+
+    def update_vip_request_status(self, request_id: int, status: str, 
+                                 vantage_email: Optional[str] = None) -> bool:
+        """Update VIP request status"""
+        try:
+            conn = sqlite3.connect(self.db_path, timeout=10.0)
+            cursor = conn.cursor()
+            
+            if vantage_email:
+                cursor.execute('''
+                    UPDATE vip_requests 
+                    SET status = ?, vantage_email = ?, updated_at = ?
+                    WHERE id = ?
+                ''', (status, vantage_email, datetime.now(), request_id))
+            else:
+                cursor.execute('''
+                    UPDATE vip_requests 
+                    SET status = ?, updated_at = ?
+                    WHERE id = ?
+                ''', (status, datetime.now(), request_id))
+            
+            conn.commit()
+            conn.close()
+            
+            logger.info(f"✅ Updated VIP request {request_id} status to {status}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Error updating VIP request: {e}")
+            return False
+
+    def get_vip_requests_by_status(self, status: Optional[str] = None) -> List[Dict]:
+        """Get VIP requests filtered by status"""
+        try:
+            conn = sqlite3.connect(self.db_path, timeout=10.0)
+            cursor = conn.cursor()
+            
+            if status and status != 'all':
+                cursor.execute('''
+                    SELECT id, user_id, username, request_type, staff_id, status, 
+                           vantage_email, created_at, updated_at
+                    FROM vip_requests 
+                    WHERE status = ?
+                    ORDER BY created_at DESC
+                ''', (status,))
+            else:
+                cursor.execute('''
+                    SELECT id, user_id, username, request_type, staff_id, status, 
+                           vantage_email, created_at, updated_at
+                    FROM vip_requests 
+                    ORDER BY created_at DESC
+                ''')
+            
+            results = cursor.fetchall()
+            conn.close()
+            
+            requests = []
+            for row in results:
+                requests.append({
+                    'id': row[0],
+                    'user_id': row[1],
+                    'username': row[2],
+                    'request_type': row[3],
+                    'staff_id': row[4],
+                    'status': row[5],
+                    'vantage_email': row[6],
+                    'created_at': row[7],
+                    'updated_at': row[8]
+                })
+            
+            return requests
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting VIP requests: {e}")
+            return []
+
+    def get_staff_vip_stats(self, staff_id: int) -> Dict:
+        """Get VIP conversion stats for a staff member"""
+        try:
+            conn = sqlite3.connect(self.db_path, timeout=10.0)
+            cursor = conn.cursor()
+            
+            # Get total invites and VIP conversions
+            cursor.execute('''
+                SELECT COUNT(*) FROM invite_tracking WHERE inviter_id = ?
+            ''', (staff_id,))
+            total_invites = cursor.fetchone()[0]
+            
+            cursor.execute('''
+                SELECT COUNT(*) FROM vip_requests WHERE staff_id = ? AND status = 'completed'
+            ''', (staff_id,))
+            vip_conversions = cursor.fetchone()[0]
+            
+            cursor.execute('''
+                SELECT COUNT(*) FROM vip_requests WHERE staff_id = ? AND status = 'pending'
+            ''', (staff_id,))
+            pending_requests = cursor.fetchone()[0]
+            
+            conn.close()
+            
+            return {
+                'total_invites': total_invites,
+                'vip_conversions': vip_conversions,
+                'pending_requests': pending_requests,
+                'conversion_rate': (vip_conversions / total_invites * 100) if total_invites > 0 else 0
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting staff stats: {e}")
+            return {'total_invites': 0, 'vip_conversions': 0, 'pending_requests': 0, 'conversion_rate': 0}
+
+    def get_all_staff_configs(self) -> List[Dict]:
+        """Get all staff invite configurations"""
+        try:
+            conn = sqlite3.connect(self.db_path, timeout=10.0)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                SELECT staff_id, staff_username, invite_code, vantage_referral_link, created_at
+                FROM staff_invites 
+                ORDER BY created_at DESC
+            ''')
+            
+            results = cursor.fetchall()
+            conn.close()
+            
+            staff_configs = []
+            for row in results:
+                staff_configs.append({
+                    'staff_id': row[0],
+                    'staff_username': row[1],
+                    'invite_code': row[2],
+                    'vantage_referral_link': row[3],
+                    'created_at': row[4]
+                })
+            
+            return staff_configs
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting all staff configs: {e}")
+            return []
+
     async def periodic_backup(self):
         """Periodic backup every 30 minutes"""
         while True:
