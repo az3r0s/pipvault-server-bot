@@ -29,19 +29,41 @@ class VIPUpgradeView(discord.ui.View):
     async def upgrade_to_vip(self, interaction: discord.Interaction, button: discord.ui.Button):
         """Handle initial VIP upgrade button click"""
         try:
-            # Check if user already has VIP role (optional check)
-            vip_role_id = int(interaction.client.get_cog('VIPUpgrade').VIP_ROLE_ID) if interaction.client.get_cog('VIPUpgrade').VIP_ROLE_ID else None
+            # Load staff config to check if user is staff
+            vip_cog = interaction.client.get_cog('VIPUpgrade')
+            config = vip_cog.bot.db.load_staff_config() if vip_cog else None
             
-            if vip_role_id:
+            # Check if user is staff member (either in config or has admin permissions)
+            is_staff = False
+            if config and 'staff_members' in config:
+                for staff_member in config['staff_members'].values():
+                    if staff_member['discord_id'] == interaction.user.id:
+                        is_staff = True
+                        break
+            
+            # Also check for administrator permissions as staff
+            if not is_staff and isinstance(interaction.user, discord.Member):
+                if interaction.user.guild_permissions.administrator:
+                    is_staff = True
+            
+            # Check if user already has VIP role
+            vip_role_id = int(vip_cog.VIP_ROLE_ID) if vip_cog and vip_cog.VIP_ROLE_ID else None
+            
+            if vip_role_id and interaction.guild:
                 vip_role = interaction.guild.get_role(vip_role_id)
-                if vip_role and vip_role in interaction.user.roles:
-                    embed = discord.Embed(
-                        title="👑 Already VIP!",
-                        description="You already have VIP access!",
-                        color=discord.Color.gold()
-                    )
-                    await interaction.response.send_message(embed=embed, ephemeral=True)
-                    return
+                if vip_role and isinstance(interaction.user, discord.Member) and vip_role in interaction.user.roles:
+                    if not is_staff:
+                        # Regular VIP member - deny access
+                        embed = discord.Embed(
+                            title="👑 Already VIP!",
+                            description="You already have VIP access! This channel is for new members upgrading to VIP.",
+                            color=discord.Color.gold()
+                        )
+                        await interaction.response.send_message(embed=embed, ephemeral=True)
+                        return
+                    # Staff member with VIP - allow them to continue but with a note
+                    # We'll continue to the normal flow but note this in logs
+                    logger.info(f"Staff member {interaction.user.name} ({interaction.user.id}) accessing VIP upgrade as staff")
             
             # Show the account question view
             embed = discord.Embed(

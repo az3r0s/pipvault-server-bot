@@ -505,6 +505,306 @@ class VIPUpgrade(commands.Cog):
         except Exception as e:
             logger.error(f"❌ Error showing VIP stats: {e}")
             await interaction.response.send_message(f"❌ Error: {str(e)}", ephemeral=True)
+    
+    @app_commands.command(name="manage_invite_permissions", description="[ADMIN] Manage who can create invites")
+    @app_commands.describe(
+        action="Enable or disable invite creation for everyone",
+        role="Specific role to grant/revoke invite permissions (optional)"
+    )
+    async def manage_invite_permissions(self, interaction: discord.Interaction, 
+                                      action: str, role: discord.Role = None):
+        """Manage server invite creation permissions"""
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("❌ You need administrator permissions to use this command.", ephemeral=True)
+            return
+        
+        try:
+            guild = interaction.guild
+            everyone_role = guild.default_role
+            
+            if action.lower() == "disable":
+                # Remove create_instant_invite permission from @everyone
+                permissions = everyone_role.permissions
+                permissions.create_instant_invite = False
+                await everyone_role.edit(permissions=permissions)
+                
+                embed = discord.Embed(
+                    title="🔒 Invite Creation Disabled",
+                    description="Regular members can no longer create invite links. Only staff with specific permissions can create invites.",
+                    color=discord.Color.red()
+                )
+                embed.add_field(
+                    name="📋 What This Means",
+                    value=(
+                        "• Only administrators and assigned staff can create invites\n"
+                        "• Staff invites are managed through `/create_staff_invite`\n"
+                        "• This ensures proper VIP upgrade attribution"
+                    ),
+                    inline=False
+                )
+                
+            elif action.lower() == "enable":
+                # Restore create_instant_invite permission to @everyone
+                permissions = everyone_role.permissions
+                permissions.create_instant_invite = True
+                await everyone_role.edit(permissions=permissions)
+                
+                embed = discord.Embed(
+                    title="🔓 Invite Creation Enabled",
+                    description="All members can now create invite links.",
+                    color=discord.Color.green()
+                )
+                embed.add_field(
+                    name="⚠️ Warning",
+                    value="This may affect VIP upgrade attribution accuracy since members could join through non-staff invites.",
+                    inline=False
+                )
+                
+            else:
+                await interaction.response.send_message("❌ Action must be 'enable' or 'disable'", ephemeral=True)
+                return
+            
+            # Handle specific role permissions
+            if role:
+                role_permissions = role.permissions
+                if action.lower() == "disable":
+                    role_permissions.create_instant_invite = False
+                    embed.add_field(
+                        name=f"🚫 Role Updated",
+                        value=f"Removed invite permissions from {role.mention}",
+                        inline=False
+                    )
+                else:
+                    role_permissions.create_instant_invite = True
+                    embed.add_field(
+                        name=f"✅ Role Updated", 
+                        value=f"Granted invite permissions to {role.mention}",
+                        inline=False
+                    )
+                await role.edit(permissions=role_permissions)
+            
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            logger.info(f"Admin {interaction.user.name} {action}d invite creation permissions")
+            
+        except Exception as e:
+            logger.error(f"❌ Error managing invite permissions: {e}")
+            await interaction.response.send_message(f"❌ Error: {str(e)}", ephemeral=True)
+    
+    @app_commands.command(name="check_invite_permissions", description="[ADMIN] Check who can create invites")
+    async def check_invite_permissions(self, interaction: discord.Interaction):
+        """Check current invite creation permissions"""
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("❌ You need administrator permissions to use this command.", ephemeral=True)
+            return
+        
+        try:
+            guild = interaction.guild
+            everyone_role = guild.default_role
+            
+            embed = discord.Embed(
+                title="🔍 Invite Permission Status",
+                description="Current invite creation permissions in this server",
+                color=discord.Color.blue(),
+                timestamp=datetime.now()
+            )
+            
+            # Check @everyone permissions
+            everyone_can_invite = everyone_role.permissions.create_instant_invite
+            embed.add_field(
+                name="👥 @everyone Role",
+                value="✅ Can create invites" if everyone_can_invite else "❌ Cannot create invites",
+                inline=False
+            )
+            
+            # Check roles that can create invites
+            roles_with_invite = []
+            for role in guild.roles:
+                if role != everyone_role and role.permissions.create_instant_invite:
+                    roles_with_invite.append(role.mention)
+            
+            if roles_with_invite:
+                embed.add_field(
+                    name="🎭 Roles with Invite Permissions",
+                    value="\n".join(roles_with_invite[:10]),  # Limit to 10 roles
+                    inline=False
+                )
+            else:
+                embed.add_field(
+                    name="🎭 Roles with Invite Permissions", 
+                    value="None (besides Administrator roles)",
+                    inline=False
+                )
+            
+            # Show staff invite status
+            staff_invites = []
+            config = self.bot.db.load_staff_config()
+            if config and 'staff_members' in config:
+                for staff_id, staff_info in config['staff_members'].items():
+                    member = guild.get_member(staff_info['discord_id'])
+                    if member:
+                        invite_code = staff_info.get('invite_code')
+                        status = f"✅ {invite_code}" if invite_code else "❌ No invite"
+                        staff_invites.append(f"**{staff_info['username']}**: {status}")
+            
+            if staff_invites:
+                embed.add_field(
+                    name="👑 Staff Invite Status",
+                    value="\n".join(staff_invites),
+                    inline=False
+                )
+            
+            embed.set_footer(text="💡 Use /manage_invite_permissions to change these settings")
+            
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            
+        except Exception as e:
+            logger.error(f"❌ Error checking invite permissions: {e}")
+            await interaction.response.send_message(f"❌ Error: {str(e)}", ephemeral=True)
+    
+    @app_commands.command(name="cleanup_unauthorized_invites", description="[ADMIN] Remove invites not created by staff")
+    async def cleanup_unauthorized_invites(self, interaction: discord.Interaction):
+        """Clean up invites that weren't created by authorized staff"""
+        if not (isinstance(interaction.user, discord.Member) and interaction.user.guild_permissions.administrator):
+            await interaction.response.send_message("❌ You need administrator permissions to use this command.", ephemeral=True)
+            return
+        
+        try:
+            guild = interaction.guild
+            if not guild:
+                await interaction.response.send_message("❌ This command must be used in a server.", ephemeral=True)
+                return
+            all_invites = await guild.invites()
+            
+            # Get authorized staff member IDs
+            config = self.bot.db.load_staff_config()
+            authorized_staff = set()
+            if config and 'staff_members' in config:
+                for staff_info in config['staff_members'].values():
+                    authorized_staff.add(staff_info['discord_id'])
+            
+            # Add bot itself as authorized
+            authorized_staff.add(self.bot.user.id)
+            
+            # Find unauthorized invites
+            unauthorized_invites = []
+            staff_invites = []
+            
+            for invite in all_invites:
+                if invite.inviter:
+                    if invite.inviter.id in authorized_staff:
+                        staff_invites.append(invite)
+                    elif not (isinstance(invite.inviter, discord.Member) and invite.inviter.guild_permissions.administrator):
+                        unauthorized_invites.append(invite)
+            
+            # Show confirmation embed
+            embed = discord.Embed(
+                title="🧹 Invite Cleanup Analysis",
+                description="Analysis of current server invites",
+                color=discord.Color.orange()
+            )
+            
+            embed.add_field(
+                name="✅ Authorized Invites (Will Keep)",
+                value=f"{len(staff_invites)} staff/admin invites found",
+                inline=True
+            )
+            
+            embed.add_field(
+                name="❌ Unauthorized Invites (Will Remove)",
+                value=f"{len(unauthorized_invites)} unauthorized invites found",
+                inline=True
+            )
+            
+            if unauthorized_invites:
+                unauthorized_list = []
+                for invite in unauthorized_invites[:5]:  # Show first 5
+                    unauthorized_list.append(f"• `{invite.code}` by {invite.inviter.name}")
+                
+                if len(unauthorized_invites) > 5:
+                    unauthorized_list.append(f"• ...and {len(unauthorized_invites) - 5} more")
+                
+                embed.add_field(
+                    name="📋 Unauthorized Invites to Remove",
+                    value="\n".join(unauthorized_list),
+                    inline=False
+                )
+                
+                # Add confirmation buttons
+                view = InviteCleanupConfirmView(unauthorized_invites)
+                await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+            else:
+                embed.add_field(
+                    name="🎉 All Clean!",
+                    value="No unauthorized invites found. All invites are from staff or administrators.",
+                    inline=False
+                )
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+            
+        except Exception as e:
+            logger.error(f"❌ Error analyzing invites: {e}")
+            await interaction.response.send_message(f"❌ Error: {str(e)}", ephemeral=True)
+
+class InviteCleanupConfirmView(discord.ui.View):
+    """Confirmation view for invite cleanup"""
+    
+    def __init__(self, unauthorized_invites):
+        super().__init__(timeout=300)  # 5 minute timeout
+        self.unauthorized_invites = unauthorized_invites
+    
+    @discord.ui.button(label="🗑️ Remove Unauthorized Invites", style=discord.ButtonStyle.danger)
+    async def confirm_cleanup(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Confirm and execute invite cleanup"""
+        try:
+            removed_count = 0
+            errors = []
+            
+            for invite in self.unauthorized_invites:
+                try:
+                    await invite.delete(reason="Unauthorized invite cleanup by admin")
+                    removed_count += 1
+                except Exception as e:
+                    errors.append(f"Failed to remove {invite.code}: {str(e)}")
+            
+            embed = discord.Embed(
+                title="✅ Invite Cleanup Complete",
+                description=f"Successfully removed {removed_count} unauthorized invites",
+                color=discord.Color.green()
+            )
+            
+            if errors:
+                embed.add_field(
+                    name="⚠️ Errors",
+                    value="\n".join(errors[:5]),  # Show first 5 errors
+                    inline=False
+                )
+            
+            # Disable the view
+            for item in self.children:
+                try:
+                    item.disabled = True
+                except AttributeError:
+                    pass
+            
+            await interaction.response.edit_message(embed=embed, view=self)
+            
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Error during cleanup: {str(e)}", ephemeral=True)
+    
+    @discord.ui.button(label="❌ Cancel", style=discord.ButtonStyle.secondary)
+    async def cancel_cleanup(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Cancel the cleanup"""
+        embed = discord.Embed(
+            title="❌ Cleanup Cancelled",
+            description="No invites were removed.",
+            color=discord.Color.red()
+        )
+        
+        # Disable the view
+        for item in self.children:
+            if hasattr(item, 'disabled'):
+                item.disabled = True
+        
+        await interaction.response.edit_message(embed=embed, view=self)
 
 async def setup(bot):
     await bot.add_cog(VIPUpgrade(bot))

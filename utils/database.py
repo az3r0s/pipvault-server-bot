@@ -46,6 +46,23 @@ class ServerDatabase:
             )
         ''')
         
+        # Invite rejoins table (track when users leave and rejoin with different invites)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS invite_rejoins (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                username TEXT,
+                invite_code TEXT,
+                inviter_id INTEGER,
+                inviter_username TEXT,
+                rejoined_at TIMESTAMP,
+                invite_uses_before INTEGER,
+                invite_uses_after INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES invite_tracking(user_id)
+            )
+        ''')
+        
         # Staff invite configuration table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS staff_invites (
@@ -139,18 +156,36 @@ class ServerDatabase:
             conn = sqlite3.connect(self.db_path, timeout=10.0)
             cursor = conn.cursor()
             
-            cursor.execute('''
-                INSERT OR REPLACE INTO invite_tracking 
-                (user_id, username, invite_code, inviter_id, inviter_username, 
-                 joined_at, invite_uses_before, invite_uses_after)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (user_id, username, invite_code, inviter_id, inviter_username,
-                  datetime.now(), uses_before, uses_after))
+            # Check if user already has a record (preserve original attribution)
+            cursor.execute('SELECT user_id FROM invite_tracking WHERE user_id = ?', (user_id,))
+            existing_record = cursor.fetchone()
+            
+            if existing_record:
+                # User already exists, just log the rejoin but don't change attribution
+                logger.info(f"👥 {username} rejoined via invite {invite_code} by {inviter_username}, but keeping original attribution")
+                
+                # Optionally, record this as a separate rejoin event
+                cursor.execute('''
+                    INSERT INTO invite_rejoins 
+                    (user_id, username, invite_code, inviter_id, inviter_username, 
+                     rejoined_at, invite_uses_before, invite_uses_after)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (user_id, username, invite_code, inviter_id, inviter_username,
+                      datetime.now(), uses_before, uses_after))
+            else:
+                # New user, record normally
+                cursor.execute('''
+                    INSERT INTO invite_tracking 
+                    (user_id, username, invite_code, inviter_id, inviter_username, 
+                     joined_at, invite_uses_before, invite_uses_after)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (user_id, username, invite_code, inviter_id, inviter_username,
+                      datetime.now(), uses_before, uses_after))
+                
+                logger.info(f"✅ Recorded new user join: {username} via invite {invite_code}")
             
             conn.commit()
             conn.close()
-            
-            logger.info(f"✅ Recorded user join: {username} via invite {invite_code}")
             return True
             
         except Exception as e:
