@@ -448,6 +448,10 @@ class VantageAccountView(discord.ui.View):
                 inline=False
             )
             
+            # Disable the view buttons to hide the original message
+            for item in self.children:
+                item.disabled = True
+            
             embed.add_field(
                 name="📋 Important Instructions:",
                 value=(
@@ -465,7 +469,14 @@ class VantageAccountView(discord.ui.View):
             
             # Add button to mark as sent with image proof
             view = EmailSentView(request_id, require_proof=True)
-            await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+            
+            # Edit the original message to disable buttons (hide the initial choice)
+            try:
+                await interaction.response.edit_message(view=self)
+                await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+            except:
+                # Fallback if editing fails
+                await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
             
         except Exception as e:
             logger.error(f"❌ Error in existing account flow: {e}")
@@ -580,9 +591,20 @@ class VantageAccountView(discord.ui.View):
             
             embed.set_footer(text=f"Request ID: {request_id} | Attributed to: {staff_config['username']}")
             
+            # Disable the view buttons to hide the original message
+            for item in self.children:
+                item.disabled = True
+            
             # Add button to mark as completed
             view = AccountCreatedView(request_id)
-            await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+            
+            # Edit the original message to disable buttons (hide the initial choice)
+            try:
+                await interaction.response.edit_message(view=self)
+                await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+            except:
+                # Fallback if editing fails
+                await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
             
         except Exception as e:
             logger.error(f"❌ Error in new account flow: {e}")
@@ -657,16 +679,16 @@ class EmailProofModal(discord.ui.Modal):
     async def on_submit(self, interaction: discord.Interaction):
         """Handle email proof submission"""
         try:
-            # Send instructions for image upload
+            # Show upload interface
             embed = discord.Embed(
                 title="📸 Upload Email Screenshot",
                 description=(
-                    "Please **upload a screenshot** of your sent email in this channel.\n\n"
+                    "Please **upload a screenshot** of your sent email.\n\n"
                     "**Required in screenshot:**\n"
                     "• Show the email was sent to support@vantage.com\n"
                     "• Include the subject line and your message\n"
                     "• Make sure your email address is visible\n\n"
-                    "After uploading, our staff will review and approve your VIP upgrade."
+                    "Click the button below to upload your screenshot."
                 ),
                 color=discord.Color.blue()
             )
@@ -678,53 +700,9 @@ class EmailProofModal(discord.ui.Modal):
             db = bot.db
             db.update_vip_request_status(self.request_id, 'awaiting_proof')
             
-            # Send to vip-tickets channel for staff review
-            config = db.load_staff_config()
-            vip_tickets_channel_id = int(config["channels"]["vip_tickets_channel"])
-            vip_tickets_channel = interaction.client.get_channel(vip_tickets_channel_id)
-            
-            if vip_tickets_channel and isinstance(vip_tickets_channel, (discord.TextChannel, discord.Thread)):
-                ticket_embed = discord.Embed(
-                    title="🎫 New VIP Upgrade - Email Proof Required",
-                    description=(
-                        f"**User:** {interaction.user.mention} ({interaction.user.display_name})\n"
-                        f"**Request ID:** {self.request_id}\n"
-                        f"**Status:** Awaiting email proof screenshot\n\n"
-                        "User will upload screenshot proof in the VIP upgrade channel."
-                    ),
-                    color=discord.Color.orange()
-                )
-                await vip_tickets_channel.send(embed=ticket_embed)
-                
-                # Send DM notification to responsible staff member
-                try:
-                    # Get request details to find staff member
-                    request_details = db.get_vip_requests_by_status('awaiting_proof')
-                    current_request = None
-                    for req in request_details:
-                        if req['id'] == self.request_id:
-                            current_request = req
-                            break
-                    
-                    if current_request and current_request['staff_id']:
-                        staff_config = db.get_staff_by_discord_id(current_request['staff_id'])
-                        if staff_config:
-                            await send_staff_vip_notification(
-                                bot=interaction.client,
-                                staff_discord_id=current_request['staff_id'],
-                                user_id=interaction.user.id,
-                                user_name=interaction.user.display_name,
-                                request_type='existing_account',
-                                request_id=self.request_id,
-                                staff_config=staff_config,
-                                image_proof=None  # TODO: Add image proof when implemented
-                            )
-                except Exception as e:
-                    logger.error(f"Failed to send staff DM notification: {e}")
-            
-            # Create view for image upload
+            # Show upload interface
             upload_view = ImageUploadView(self.request_id)
-            await interaction.response.send_message(embed=embed, view=upload_view, ephemeral=False)
+            await interaction.response.send_message(embed=embed, view=upload_view, ephemeral=True)
             
         except Exception as e:
             logger.error(f"Error in email proof modal: {e}")
