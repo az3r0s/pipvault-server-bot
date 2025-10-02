@@ -137,6 +137,10 @@ class CloudAPIServerDatabase:
             conn.close()
             
             logger.info(f"Updated invite code for staff {discord_id}: {invite_code}")
+            
+            # Trigger immediate cloud backup
+            self.trigger_backup()
+            
             return True
             
         except Exception as e:
@@ -435,6 +439,10 @@ class CloudAPIServerDatabase:
             conn.close()
             
             logger.info(f"✅ Updated staff invite config for {staff_username}")
+            
+            # Trigger immediate cloud backup
+            self.trigger_backup()
+            
             return True
             
         except Exception as e:
@@ -581,6 +589,50 @@ class CloudAPIServerDatabase:
         except Exception as e:
             logger.error(f"❌ Error getting all staff configs: {e}")
             return []
+
+    def trigger_backup(self):
+        """Trigger immediate backup (non-blocking)"""
+        try:
+            # Create a simple backup using requests (synchronous)
+            if not self.cloud_base_url:
+                return
+                
+            # Get all data from local SQLite
+            conn = sqlite3.connect(self.db_path, timeout=10.0)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            # Get all tables data
+            backup_data = {}
+            
+            # Staff invites
+            cursor.execute('SELECT * FROM staff_invites')
+            staff_invites = [dict(row) for row in cursor.fetchall()]
+            backup_data['staff_invites'] = staff_invites
+            
+            # Invite tracking
+            cursor.execute('SELECT * FROM invite_tracking')
+            invite_tracking = [dict(row) for row in cursor.fetchall()]
+            backup_data['invite_tracking'] = invite_tracking
+            
+            # VIP requests
+            cursor.execute('SELECT * FROM vip_requests')
+            vip_requests = [dict(row) for row in cursor.fetchall()]
+            backup_data['vip_requests'] = vip_requests
+            
+            conn.close()
+            
+            # Send to cloud API
+            backup_endpoint = f"{self.cloud_base_url}/backup_server_data"
+            response = requests.post(backup_endpoint, json=backup_data, timeout=10)
+            
+            if response.status_code == 200:
+                logger.info("✅ Immediate backup to cloud API successful")
+            else:
+                logger.warning(f"⚠️ Backup warning: {response.status_code}")
+                
+        except Exception as e:
+            logger.warning(f"⚠️ Backup failed: {e}")
 
     async def periodic_backup(self):
         """Periodic backup every 30 minutes"""
