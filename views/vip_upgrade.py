@@ -14,6 +14,254 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
+class StaffVIPApprovalView(discord.ui.View):
+    """View for staff to approve/deny VIP requests from DMs"""
+    
+    def __init__(self, request_id: int, user_id: int, user_name: str):
+        super().__init__(timeout=86400)  # 24 hour timeout
+        self.request_id = request_id
+        self.user_id = user_id
+        self.user_name = user_name
+    
+    @discord.ui.button(
+        label="✅ Approve VIP",
+        style=discord.ButtonStyle.success,
+        custom_id="approve_vip_dm"
+    )
+    async def approve_vip(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Approve VIP request from DM"""
+        try:
+            # Get the bot instance and database
+            bot = interaction.client
+            vip_cog = bot.get_cog('VIPUpgrade')
+            
+            if not vip_cog:
+                await interaction.response.send_message("❌ VIP system not available.", ephemeral=True)
+                return
+            
+            # Update request status in database
+            success = bot.db.update_vip_request_status(self.request_id, 'completed')
+            
+            if success:
+                # Get the guild and user
+                guild = bot.get_guild(int(vip_cog.GUILD_ID))
+                if not guild:
+                    await interaction.response.send_message("❌ Guild not found.", ephemeral=True)
+                    return
+                
+                member = guild.get_member(self.user_id)
+                if not member:
+                    await interaction.response.send_message("❌ User not found in guild.", ephemeral=True)
+                    return
+                
+                # Add VIP role
+                vip_role_id = int(vip_cog.VIP_ROLE_ID)
+                vip_role = guild.get_role(vip_role_id)
+                
+                if vip_role:
+                    await member.add_roles(vip_role, reason=f"VIP approved by {interaction.user.name}")
+                    
+                    # Send confirmation to staff
+                    embed = discord.Embed(
+                        title="✅ VIP Request Approved",
+                        description=f"Successfully granted VIP role to **{self.user_name}**",
+                        color=discord.Color.green()
+                    )
+                    await interaction.response.send_message(embed=embed)
+                    
+                    # Notify user in VIP upgrade channel
+                    vip_channel = guild.get_channel(int(vip_cog.VIP_UPGRADE_CHANNEL_ID))
+                    if vip_channel:
+                        user_embed = discord.Embed(
+                            title="🎉 VIP Upgrade Approved!",
+                            description=f"Congratulations {member.mention}! Your VIP upgrade has been approved.",
+                            color=discord.Color.gold()
+                        )
+                        await vip_channel.send(embed=user_embed)
+                    
+                    # Disable buttons
+                    for item in self.children:
+                        item.disabled = True
+                    await interaction.edit_original_response(view=self)
+                    
+                else:
+                    await interaction.response.send_message("❌ VIP role not found.", ephemeral=True)
+            else:
+                await interaction.response.send_message("❌ Failed to update request status.", ephemeral=True)
+                
+        except Exception as e:
+            logger.error(f"❌ Error in VIP approval: {e}")
+            await interaction.response.send_message("❌ An error occurred.", ephemeral=True)
+    
+    @discord.ui.button(
+        label="❌ Deny VIP",
+        style=discord.ButtonStyle.danger,
+        custom_id="deny_vip_dm"
+    )
+    async def deny_vip(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Deny VIP request from DM"""
+        try:
+            # Show modal for denial reason
+            modal = DenialReasonModal(self.request_id, self.user_id, self.user_name, self)
+            await interaction.response.send_modal(modal)
+            
+        except Exception as e:
+            logger.error(f"❌ Error in VIP denial: {e}")
+            await interaction.response.send_message("❌ An error occurred.", ephemeral=True)
+
+class DenialReasonModal(discord.ui.Modal):
+    """Modal for staff to enter denial reason"""
+    
+    def __init__(self, request_id: int, user_id: int, user_name: str, view: StaffVIPApprovalView):
+        super().__init__(title="VIP Denial Reason")
+        self.request_id = request_id
+        self.user_id = user_id
+        self.user_name = user_name
+        self.view = view
+    
+    reason = discord.ui.TextInput(
+        label="Reason for denial",
+        placeholder="Please explain why this VIP request is being denied...",
+        style=discord.TextStyle.paragraph,
+        max_length=500,
+        required=True
+    )
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        try:
+            # Get the bot instance
+            bot = interaction.client
+            vip_cog = bot.get_cog('VIPUpgrade')
+            
+            if not vip_cog:
+                await interaction.response.send_message("❌ VIP system not available.", ephemeral=True)
+                return
+            
+            # Update request status in database
+            success = bot.db.update_vip_request_status(self.request_id, 'denied')
+            
+            if success:
+                # Get the guild and VIP upgrade channel
+                guild = bot.get_guild(int(vip_cog.GUILD_ID))
+                if guild:
+                    vip_channel = guild.get_channel(int(vip_cog.VIP_UPGRADE_CHANNEL_ID))
+                    member = guild.get_member(self.user_id)
+                    
+                    if vip_channel and member:
+                        # Send denial message to user in VIP upgrade channel
+                        embed = discord.Embed(
+                            title="❌ VIP Upgrade Denied",
+                            description=f"Sorry {member.mention}, your VIP upgrade request has been denied.",
+                            color=discord.Color.red()
+                        )
+                        embed.add_field(
+                            name="Reason:",
+                            value=self.reason.value,
+                            inline=False
+                        )
+                        embed.set_footer(text="You can submit a new request after addressing the concerns mentioned above.")
+                        
+                        await vip_channel.send(embed=embed)
+                
+                # Confirm to staff
+                embed = discord.Embed(
+                    title="❌ VIP Request Denied",
+                    description=f"VIP request for **{self.user_name}** has been denied.",
+                    color=discord.Color.red()
+                )
+                embed.add_field(name="Reason", value=self.reason.value, inline=False)
+                await interaction.response.send_message(embed=embed)
+                
+                # Disable buttons in original message
+                for item in self.view.children:
+                    item.disabled = True
+                await interaction.edit_original_response(view=self.view)
+                
+            else:
+                await interaction.response.send_message("❌ Failed to update request status.", ephemeral=True)
+                
+        except Exception as e:
+            logger.error(f"❌ Error in VIP denial: {e}")
+            await interaction.response.send_message("❌ An error occurred.", ephemeral=True)
+
+async def send_staff_vip_notification(bot, staff_discord_id: int, user_id: int, user_name: str, 
+                                    request_type: str, request_id: int, staff_config: dict, 
+                                    image_proof = None):
+    """Send DM notification to staff member about VIP upgrade request"""
+    try:
+        # Get staff member
+        staff_member = bot.get_user(staff_discord_id)
+        if not staff_member:
+            logger.warning(f"Could not find staff member with ID {staff_discord_id}")
+            return
+        
+        # Create embed based on request type
+        if request_type == "existing_account":
+            embed = discord.Embed(
+                title="📧 VIP Upgrade - Email Sent",
+                description=f"**{user_name}** has submitted their VIP upgrade request with email proof.",
+                color=discord.Color.blue()
+            )
+            embed.add_field(
+                name="👤 User",
+                value=f"<@{user_id}> ({user_name})",
+                inline=True
+            )
+            embed.add_field(
+                name="💼 Your IB Code",
+                value=staff_config.get('vantage_ib_code', 'N/A'),
+                inline=True
+            )
+            embed.add_field(
+                name="📧 Action Required",
+                value="Please check if the user has sent their email correctly and approve/deny below.",
+                inline=False
+            )
+            
+            if image_proof:
+                embed.set_image(url=image_proof.url)
+                embed.add_field(
+                    name="📎 Email Proof",
+                    value="Image attached above",
+                    inline=False
+                )
+        
+        else:  # new_account
+            embed = discord.Embed(
+                title="🆕 VIP Upgrade - Account Created",
+                description=f"**{user_name}** has marked their new Vantage account creation as complete.",
+                color=discord.Color.green()
+            )
+            embed.add_field(
+                name="👤 User",
+                value=f"<@{user_id}> ({user_name})",
+                inline=True
+            )
+            embed.add_field(
+                name="💼 Your IB Code",
+                value=staff_config.get('vantage_ib_code', 'N/A'),
+                inline=True
+            )
+            embed.add_field(
+                name="✅ Action Required",
+                value="Please verify their account was created correctly and approve/deny below.",
+                inline=False
+            )
+        
+        embed.set_footer(text=f"Request ID: {request_id} | Use buttons below to approve/deny")
+        
+        # Create approval view
+        view = StaffVIPApprovalView(request_id, user_id, user_name)
+        
+        # Send DM
+        await staff_member.send(embed=embed, view=view)
+        logger.info(f"✅ Sent VIP notification DM to {staff_member.name} for user {user_name}")
+        
+    except discord.Forbidden:
+        logger.warning(f"Could not DM staff member {staff_discord_id} (DMs disabled)")
+    except Exception as e:
+        logger.error(f"❌ Error sending staff notification: {e}")
+
 class VIPUpgradeView(discord.ui.View):
     """Main VIP upgrade button view"""
     
@@ -155,9 +403,8 @@ class VantageAccountView(discord.ui.View):
                 return
             
             # Get email template from config
-            from utils.database import ServerDatabase
-            db = ServerDatabase()
-            config = db.load_staff_config()
+            bot = interaction.client
+            config = bot.db.load_staff_config()
             
             # Show email template with placeholders filled (user fills in name themselves)
             email_template = config["email_template"]["body_template"].format(
@@ -220,7 +467,8 @@ class VantageAccountView(discord.ui.View):
         try:
             # Get user's invite information
             # Use the bot's database instance instead of creating a new one
-            db = self.bot.db
+            bot = interaction.client
+            db = bot.db
             invite_info = db.get_user_invite_info(interaction.user.id)
             
             # Get staff configuration - fallback to default if no invite found
@@ -335,8 +583,8 @@ class EmailSentView(discord.ui.View):
         else:
             # Original flow without proof requirement
             try:
-                from utils.database import ServerDatabase
-                db = ServerDatabase()
+                bot = interaction.client
+                db = bot.db
                 success = db.update_vip_request_status(self.request_id, 'email_sent')
                 
                 if success:
@@ -399,8 +647,8 @@ class EmailProofModal(discord.ui.Modal):
             embed.set_footer(text=f"Request ID: {self.request_id}")
             
             # Update status to awaiting proof
-            from utils.database import ServerDatabase
-            db = ServerDatabase()
+            bot = interaction.client
+            db = bot.db
             db.update_vip_request_status(self.request_id, 'awaiting_proof')
             
             # Send to vip-tickets channel for staff review
@@ -420,6 +668,32 @@ class EmailProofModal(discord.ui.Modal):
                     color=discord.Color.orange()
                 )
                 await vip_tickets_channel.send(embed=ticket_embed)
+                
+                # Send DM notification to responsible staff member
+                try:
+                    # Get request details to find staff member
+                    request_details = db.get_vip_requests_by_status('awaiting_proof')
+                    current_request = None
+                    for req in request_details:
+                        if req['id'] == self.request_id:
+                            current_request = req
+                            break
+                    
+                    if current_request and current_request['staff_id']:
+                        staff_config = db.get_staff_by_discord_id(current_request['staff_id'])
+                        if staff_config:
+                            await send_staff_vip_notification(
+                                bot=interaction.client,
+                                staff_discord_id=current_request['staff_id'],
+                                user_id=interaction.user.id,
+                                user_name=interaction.user.display_name,
+                                request_type='existing_account',
+                                request_id=self.request_id,
+                                staff_config=staff_config,
+                                image_proof=None  # TODO: Add image proof when implemented
+                            )
+                except Exception as e:
+                    logger.error(f"Failed to send staff DM notification: {e}")
             
             await interaction.response.send_message(embed=embed, ephemeral=False)
             
@@ -480,8 +754,8 @@ class VantageEmailModal(discord.ui.Modal):
                 return
             
             # Update request with email and set to pending verification
-            from utils.database import ServerDatabase
-            db = ServerDatabase()
+            bot = interaction.client
+            db = bot.db
             success = db.update_vip_request_status(self.request_id, 'account_created', email)
             
             if success:
@@ -502,7 +776,30 @@ class VantageEmailModal(discord.ui.Modal):
                 
                 await interaction.response.send_message(embed=embed, ephemeral=True)
                 
-                # TODO: Notify staff member about the pending request
+                # Send DM notification to responsible staff member
+                try:
+                    # Get request details to find staff member
+                    request_details = db.get_vip_requests_by_status('account_created')
+                    current_request = None
+                    for req in request_details:
+                        if req['id'] == self.request_id:
+                            current_request = req
+                            break
+                    
+                    if current_request and current_request['staff_id']:
+                        staff_config = db.get_staff_by_discord_id(current_request['staff_id'])
+                        if staff_config:
+                            await send_staff_vip_notification(
+                                bot=interaction.client,
+                                staff_discord_id=current_request['staff_id'],
+                                user_id=interaction.user.id,
+                                user_name=interaction.user.display_name,
+                                request_type='new_account',
+                                request_id=self.request_id,
+                                staff_config=staff_config
+                            )
+                except Exception as e:
+                    logger.error(f"Failed to send staff DM notification: {e}")
                 
             else:
                 await interaction.response.send_message("❌ Failed to save email. Please contact an admin.", ephemeral=True)

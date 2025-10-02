@@ -421,6 +421,34 @@ class CloudAPIServerDatabase:
                 return staff_info
         return None
 
+    def get_staff_config_by_invite(self, invite_code: str) -> Optional[Dict]:
+        """Get staff member info by invite code"""
+        try:
+            conn = sqlite3.connect(self.db_path, timeout=10.0)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                SELECT staff_id, staff_username, vantage_referral_link, vantage_ib_code
+                FROM staff_invites 
+                WHERE invite_code = ?
+            ''', (invite_code,))
+            
+            row = cursor.fetchone()
+            conn.close()
+            
+            if row:
+                return {
+                    'discord_id': row[0],
+                    'username': row[1],
+                    'vantage_referral_link': row[2],
+                    'vantage_ib_code': row[3]
+                }
+            return None
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting staff config by invite: {e}")
+            return None
+
     def add_staff_invite_config(self, staff_id: int, staff_username: str, 
                                invite_code: str, vantage_referral_link: str,
                                vantage_ib_code: str, email_template: str) -> bool:
