@@ -635,16 +635,12 @@ class VIPUpgrade(commands.Cog):
                     inline=False
                 )
             
-            # Show staff invite status
+            # Show staff invite status from database
             staff_invites = []
-            config = self.bot.db.load_staff_config()
-            if config and 'staff_members' in config:
-                for staff_id, staff_info in config['staff_members'].items():
-                    member = guild.get_member(staff_info['discord_id'])
-                    if member:
-                        invite_code = staff_info.get('invite_code')
-                        status = f"✅ {invite_code}" if invite_code else "❌ No invite"
-                        staff_invites.append(f"**{staff_info['username']}**: {status}")
+            staff_status = self.bot.db.get_staff_invite_status()
+            for username, invite_code in staff_status.items():
+                status = f"✅ {invite_code}" if invite_code else "❌ No invite"
+                staff_invites.append(f"**{username}**: {status}")
             
             if staff_invites:
                 embed.add_field(
@@ -661,6 +657,45 @@ class VIPUpgrade(commands.Cog):
             logger.error(f"❌ Error checking invite permissions: {e}")
             await interaction.response.send_message(f"❌ Error: {str(e)}", ephemeral=True)
     
+    @app_commands.command(name="add_existing_staff_invite", description="[ADMIN] Manually add existing staff invite code")
+    @app_commands.describe(
+        staff_member="The staff member who owns the invite",
+        invite_code="The invite code (without discord.gg/)"
+    )
+    async def add_existing_staff_invite(self, interaction: discord.Interaction, 
+                                      staff_member: discord.Member, invite_code: str):
+        """Manually add existing staff invite codes"""
+        if not (isinstance(interaction.user, discord.Member) and interaction.user.guild_permissions.administrator):
+            await interaction.response.send_message("❌ You need administrator permissions to use this command.", ephemeral=True)
+            return
+        
+        try:
+            success = self.bot.db.manually_add_staff_invite(staff_member.id, invite_code)
+            
+            if success:
+                embed = discord.Embed(
+                    title="✅ Staff Invite Added",
+                    description=f"Successfully added invite code `{invite_code}` for {staff_member.mention}",
+                    color=discord.Color.green()
+                )
+                embed.add_field(
+                    name="🔗 Invite Link",
+                    value=f"https://discord.gg/{invite_code}",
+                    inline=False
+                )
+            else:
+                embed = discord.Embed(
+                    title="❌ Failed to Add Invite",
+                    description="Could not add the staff invite. Check that the staff member is configured properly.",
+                    color=discord.Color.red()
+                )
+            
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            
+        except Exception as e:
+            logger.error(f"❌ Error adding staff invite: {e}")
+            await interaction.response.send_message(f"❌ Error: {str(e)}", ephemeral=True)
+    
     @app_commands.command(name="cleanup_unauthorized_invites", description="[ADMIN] Remove invites not created by staff")
     async def cleanup_unauthorized_invites(self, interaction: discord.Interaction):
         """Clean up invites that weren't created by authorized staff"""
@@ -675,13 +710,8 @@ class VIPUpgrade(commands.Cog):
                 return
             all_invites = await guild.invites()
             
-            # Get authorized staff invite codes (only bot-generated staff invites)
-            config = self.bot.db.load_staff_config()
-            authorized_invite_codes = set()
-            if config and 'staff_members' in config:
-                for staff_info in config['staff_members'].values():
-                    if staff_info.get('invite_code'):
-                        authorized_invite_codes.add(staff_info['invite_code'])
+            # Get authorized staff invite codes from database (only bot-generated staff invites)
+            authorized_invite_codes = self.bot.db.get_all_staff_invite_codes()
             
             # Find unauthorized invites (everything except bot-generated staff invites)
             unauthorized_invites = []

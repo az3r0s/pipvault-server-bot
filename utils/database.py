@@ -46,23 +46,6 @@ class ServerDatabase:
             )
         ''')
         
-        # Invite rejoins table (track when users leave and rejoin with different invites)
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS invite_rejoins (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER,
-                username TEXT,
-                invite_code TEXT,
-                inviter_id INTEGER,
-                inviter_username TEXT,
-                rejoined_at TIMESTAMP,
-                invite_uses_before INTEGER,
-                invite_uses_after INTEGER,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES invite_tracking(user_id)
-            )
-        ''')
-        
         # Staff invite configuration table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS staff_invites (
@@ -127,28 +110,91 @@ class ServerDatabase:
         return None
     
     def update_staff_invite_code(self, discord_id: int, invite_code: str) -> bool:
-        """Update invite code for a staff member in config file"""
+        """Update invite code for a staff member in database"""
         try:
+            # Get staff info from config
             config = self.load_staff_config()
+            staff_info = None
             
-            for staff_key, staff_info in config["staff_members"].items():
-                if staff_info["discord_id"] == discord_id:
-                    config["staff_members"][staff_key]["invite_code"] = invite_code
-                    
-                    with open(self.config_path, 'w') as f:
-                        json.dump(config, f, indent=2)
-                    
-                    logger.info(f"Updated invite code for staff {discord_id}: {invite_code}")
-                    return True
+            for staff_key, info in config["staff_members"].items():
+                if info["discord_id"] == discord_id:
+                    staff_info = info
+                    break
             
-            logger.warning(f"Staff member with Discord ID {discord_id} not found in config")
-            return False
+            if not staff_info:
+                logger.warning(f"Staff member with Discord ID {discord_id} not found in config")
+                return False
+            
+            # Store in database
+            conn = sqlite3.connect(self.db_path, timeout=10.0)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                INSERT OR REPLACE INTO staff_invites 
+                (staff_id, staff_username, invite_code, vantage_referral_link, vantage_ib_code, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (discord_id, staff_info['username'], invite_code, 
+                  staff_info['vantage_referral_link'], staff_info['vantage_ib_code'], 
+                  datetime.now()))
+            
+            conn.commit()
+            conn.close()
+            
+            logger.info(f"Updated invite code for staff {discord_id}: {invite_code}")
+            return True
             
         except Exception as e:
             logger.error(f"Failed to update staff invite code: {e}")
             return False
     
-    def record_user_join(self, user_id: int, username: str, invite_code: str, 
+    def get_all_staff_invite_codes(self) -> set:
+        """Get all staff invite codes from database"""
+        try:
+            conn = sqlite3.connect(self.db_path, timeout=10.0)
+            cursor = conn.cursor()
+            
+            cursor.execute('SELECT invite_code FROM staff_invites WHERE invite_code IS NOT NULL')
+            results = cursor.fetchall()
+            conn.close()
+            
+            return {row[0] for row in results if row[0]}
+            
+        except Exception as e:
+            logger.error(f"Failed to get staff invite codes: {e}")
+            return set()
+    
+    def get_staff_invite_status(self) -> Dict:
+        """Get staff invite status combining config and database info"""
+        try:
+            config = self.load_staff_config()
+            result = {}
+            
+            if config and 'staff_members' in config:
+                for staff_key, staff_info in config['staff_members'].items():
+                    discord_id = staff_info['discord_id']
+                    username = staff_info['username']
+                    
+                    # Get invite code from database
+                    conn = sqlite3.connect(self.db_path, timeout=10.0)
+                    cursor = conn.cursor()
+                    cursor.execute('SELECT invite_code FROM staff_invites WHERE staff_id = ?', (discord_id,))
+                    row = cursor.fetchone()
+                    conn.close()
+                    
+                    invite_code = row[0] if row and row[0] else None
+                    result[username] = invite_code
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Failed to get staff invite status: {e}")
+            return {}
+    
+    def manually_add_staff_invite(self, discord_id: int, invite_code: str) -> bool:
+        """Manually add existing staff invite codes that weren't saved properly"""
+        return self.update_staff_invite_code(discord_id, invite_code)
+
+    def record_user_join(self, user_id: int, username: str, invite_code: str,
                         inviter_id: int, inviter_username: str, 
                         uses_before: int, uses_after: int) -> bool:
         """Record when a user joins through a specific invite"""
@@ -156,36 +202,18 @@ class ServerDatabase:
             conn = sqlite3.connect(self.db_path, timeout=10.0)
             cursor = conn.cursor()
             
-            # Check if user already has a record (preserve original attribution)
-            cursor.execute('SELECT user_id FROM invite_tracking WHERE user_id = ?', (user_id,))
-            existing_record = cursor.fetchone()
-            
-            if existing_record:
-                # User already exists, just log the rejoin but don't change attribution
-                logger.info(f"👥 {username} rejoined via invite {invite_code} by {inviter_username}, but keeping original attribution")
-                
-                # Optionally, record this as a separate rejoin event
-                cursor.execute('''
-                    INSERT INTO invite_rejoins 
-                    (user_id, username, invite_code, inviter_id, inviter_username, 
-                     rejoined_at, invite_uses_before, invite_uses_after)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (user_id, username, invite_code, inviter_id, inviter_username,
-                      datetime.now(), uses_before, uses_after))
-            else:
-                # New user, record normally
-                cursor.execute('''
-                    INSERT INTO invite_tracking 
-                    (user_id, username, invite_code, inviter_id, inviter_username, 
-                     joined_at, invite_uses_before, invite_uses_after)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (user_id, username, invite_code, inviter_id, inviter_username,
-                      datetime.now(), uses_before, uses_after))
-                
-                logger.info(f"✅ Recorded new user join: {username} via invite {invite_code}")
+            cursor.execute('''
+                INSERT OR REPLACE INTO invite_tracking 
+                (user_id, username, invite_code, inviter_id, inviter_username, 
+                 joined_at, invite_uses_before, invite_uses_after)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (user_id, username, invite_code, inviter_id, inviter_username,
+                  datetime.now(), uses_before, uses_after))
             
             conn.commit()
             conn.close()
+            
+            logger.info(f"✅ Recorded user join: {username} via invite {invite_code}")
             return True
             
         except Exception as e:
