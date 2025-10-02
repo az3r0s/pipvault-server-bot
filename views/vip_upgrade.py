@@ -155,8 +155,12 @@ class VantageAccountView(discord.ui.View):
             )
             
             embed.add_field(
-                name="📧 Email Template:",
-                value=f"```\n{email_template}\n```",
+                name="📧 Email Details:",
+                value=(
+                    f"**To:** {config['email_template']['recipient']}\n"
+                    f"**Subject:** {config['email_template']['subject']}\n\n"
+                    f"**Email Body:**\n```\n{email_template}\n```"
+                ),
                 inline=False
             )
             
@@ -276,7 +280,7 @@ class VantageAccountView(discord.ui.View):
                 inline=False
             )
             
-            embed.set_footer(text=f"Request ID: {request_id} | Attributed to: {staff_config['staff_username']}")
+            embed.set_footer(text=f"Request ID: {request_id} | Attributed to: {staff_config['username']}")
             
             # Add button to mark as completed
             view = AccountCreatedView(request_id)

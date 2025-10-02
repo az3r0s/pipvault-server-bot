@@ -365,8 +365,8 @@ class VIPUpgrade(commands.Cog):
                 )
                 
                 embed.add_field(
-                    name="🔗 Invite Link", 
-                    value=f"[{invite.url}]({invite.url})\nCode: `{invite.code}`", 
+                    name="📋 Details", 
+                    value=f"**Code:** `{invite.code}`\n**Uses:** Unlimited\n**Expires:** Never", 
                     inline=False
                 )
                 embed.add_field(
@@ -375,12 +375,17 @@ class VIPUpgrade(commands.Cog):
                     inline=True
                 )
                 embed.add_field(
-                    name="� IB Code", 
+                    name="🏦 IB Code", 
                     value=f"`{staff_config['vantage_ib_code']}`", 
                     inline=True
                 )
                 
                 embed.set_footer(text="This invite link is permanent and will track all users who join through it")
+                
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+                
+                # Send the invite link as a separate message for easy copying
+                await interaction.followup.send(f"🔗 **Invite Link for Easy Copying:**\n{invite.url}", ephemeral=True)
                 
                 await interaction.response.send_message(embed=embed, ephemeral=True)
                 
