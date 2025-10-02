@@ -10,6 +10,7 @@ import discord
 from discord import ui
 import logging
 import json
+import asyncio
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -721,7 +722,9 @@ class EmailProofModal(discord.ui.Modal):
                 except Exception as e:
                     logger.error(f"Failed to send staff DM notification: {e}")
             
-            await interaction.response.send_message(embed=embed, ephemeral=False)
+            # Create view for image upload
+            upload_view = ImageUploadView(self.request_id)
+            await interaction.response.send_message(embed=embed, view=upload_view, ephemeral=False)
             
         except Exception as e:
             logger.error(f"Error in email proof modal: {e}")
@@ -729,6 +732,138 @@ class EmailProofModal(discord.ui.Modal):
                 "❌ An error occurred. Please contact staff for assistance.",
                 ephemeral=True
             )
+
+class ImageUploadView(discord.ui.View):
+    """View for users to upload email proof screenshot"""
+    
+    def __init__(self, request_id: int):
+        super().__init__(timeout=1800)  # 30 minute timeout
+        self.request_id = request_id
+        self.uploaded = False
+    
+    @discord.ui.button(
+        label="📸 Upload Screenshot",
+        style=discord.ButtonStyle.primary,
+        custom_id="upload_screenshot"
+    )
+    async def upload_screenshot(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Handle screenshot upload"""
+        try:
+            if self.uploaded:
+                await interaction.response.send_message("✅ Screenshot already uploaded for this request.", ephemeral=True)
+                return
+                
+            # Show modal asking user to attach image in next message
+            modal = ImageUploadModal(self.request_id, self)
+            await interaction.response.send_modal(modal)
+            
+        except Exception as e:
+            logger.error(f"Error in image upload: {e}")
+            await interaction.response.send_message("❌ An error occurred. Please try again.", ephemeral=True)
+
+class ImageUploadModal(discord.ui.Modal):
+    """Modal instructing user to attach image"""
+    
+    def __init__(self, request_id: int, view: ImageUploadView):
+        super().__init__(title="📸 Attach Your Screenshot")
+        self.request_id = request_id
+        self.view = view
+    
+    instructions = discord.ui.TextInput(
+        label="Ready to upload?",
+        placeholder="Type: Ready - then click Submit and immediately send your screenshot",
+        style=discord.TextStyle.short,
+        default="Ready",
+        max_length=50,
+        required=True
+    )
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        """Instruct user to send image immediately"""
+        try:
+            await interaction.response.send_message(
+                "🔥 **Please send your email screenshot NOW** (within 60 seconds)!\n"
+                "Just drag & drop or paste your image in this channel.",
+                ephemeral=False
+            )
+            
+            # Set up listener for the next message with attachment
+            bot = interaction.client
+            
+            def check_image(message):
+                return (
+                    message.author.id == interaction.user.id and 
+                    message.channel.id == interaction.channel.id and
+                    len(message.attachments) > 0 and
+                    any(att.content_type and att.content_type.startswith('image/') for att in message.attachments)
+                )
+            
+            try:
+                # Wait for image upload (60 seconds)
+                message = await bot.wait_for('message', check=check_image, timeout=60.0)
+                
+                # Process the uploaded image
+                image_attachment = next(att for att in message.attachments if att.content_type and att.content_type.startswith('image/'))
+                
+                # Update request status and notify staff
+                db = bot.db
+                db.update_vip_request_status(self.request_id, 'proof_uploaded')
+                
+                # Send confirmation
+                embed = discord.Embed(
+                    title="✅ Screenshot Received!",
+                    description=(
+                        "Thank you! Your email proof has been received.\n\n"
+                        "**Next Steps:**\n"
+                        "• Staff will review your screenshot\n"
+                        "• VIP access will be granted within 24 hours if approved\n"
+                        "• You'll receive a notification when complete"
+                    ),
+                    color=discord.Color.green()
+                )
+                embed.set_footer(text=f"Request ID: {self.request_id}")
+                
+                await message.reply(embed=embed)
+                
+                # Send staff DM with the actual image
+                try:
+                    request_details = db.get_vip_requests_by_status('proof_uploaded')
+                    current_request = None
+                    for req in request_details:
+                        if req['id'] == self.request_id:
+                            current_request = req
+                            break
+                    
+                    if current_request and current_request['staff_id']:
+                        staff_config = db.get_staff_by_discord_id(current_request['staff_id'])
+                        if staff_config:
+                            await send_staff_vip_notification(
+                                bot=bot,
+                                staff_discord_id=current_request['staff_id'],
+                                user_id=interaction.user.id,
+                                user_name=interaction.user.display_name,
+                                request_type='existing_account',
+                                request_id=self.request_id,
+                                staff_config=staff_config,
+                                image_proof=image_attachment
+                            )
+                except Exception as e:
+                    logger.error(f"Failed to send staff notification with image: {e}")
+                
+                # Mark as uploaded
+                self.view.uploaded = True
+                for item in self.view.children:
+                    item.disabled = True
+                
+            except asyncio.TimeoutError:
+                await interaction.followup.send(
+                    "⏰ Upload timeout. Please click the Upload Screenshot button again and send your image immediately.",
+                    ephemeral=True
+                )
+                
+        except Exception as e:
+            logger.error(f"Error in image upload modal: {e}")
+            await interaction.followup.send("❌ An error occurred. Please try again.", ephemeral=True)
 
 
 class AccountCreatedView(discord.ui.View):
