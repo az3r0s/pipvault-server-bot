@@ -198,97 +198,7 @@ class InviteTracker(commands.Cog):
             logger.error(f"❌ Error setting up staff invite: {e}")
             await ctx.send(f"❌ Error: {str(e)}")
     
-    @commands.hybrid_command(name="create_staff_invite")
-    @commands.has_permissions(administrator=True)
-    async def create_staff_invite(self, ctx, staff_member: discord.Member, 
-                                 vantage_link: str, *, email_template: str):
-        """
-        Create a permanent invite link for a staff member and configure VIP attribution
-        
-        Parameters:
-        - staff_member: The staff member to create invite for
-        - vantage_link: Their Vantage referral link
-        - email_template: Email template with placeholders
-        """
-        try:
-            # Create a permanent invite link
-            invite = await ctx.channel.create_invite(
-                max_age=0,  # Never expires
-                max_uses=0,  # Unlimited uses
-                unique=True,  # Create unique invite
-                reason=f"Staff invite for {staff_member.display_name}"
-            )
-            
-            # Configure in database
-            success = self.bot.db.add_staff_invite_config(
-                staff_id=staff_member.id,
-                staff_username=f"{staff_member.name}#{staff_member.discriminator}",
-                invite_code=invite.code,
-                vantage_referral_link=vantage_link,
-                email_template=email_template
-            )
-            
-            if success:
-                embed = discord.Embed(
-                    title="🔗 Staff Invite Created Successfully!",
-                    description=f"Personal invite link created for {staff_member.mention}",
-                    color=discord.Color.green()
-                )
-                embed.add_field(
-                    name="📋 Invite Details",
-                    value=(
-                        f"**Link**: {invite.url}\n"
-                        f"**Code**: `{invite.code}`\n"
-                        f"**Expires**: Never\n"
-                        f"**Max Uses**: Unlimited"
-                    ),
-                    inline=False
-                )
-                embed.add_field(
-                    name="🔗 Vantage Link", 
-                    value=f"[Referral Link]({vantage_link})", 
-                    inline=True
-                )
-                embed.add_field(
-                    name="📧 Email Template", 
-                    value=f"```{email_template[:100]}...```", 
-                    inline=False
-                )
-                
-                # Send to channel
-                await ctx.send(embed=embed)
-                
-                # Send DM to staff member with their details
-                try:
-                    dm_embed = discord.Embed(
-                        title="🎉 Your Personal Invite Link",
-                        description="Your personal Discord invite link has been created!",
-                        color=discord.Color.blue()
-                    )
-                    dm_embed.add_field(
-                        name="🔗 Your Invite Link",
-                        value=f"**{invite.url}**\n\nShare this link to invite people and get VIP attribution!",
-                        inline=False
-                    )
-                    dm_embed.add_field(
-                        name="📊 Tracking",
-                        value="All users who join through this link will be attributed to you for VIP upgrades.",
-                        inline=False
-                    )
-                    
-                    await staff_member.send(embed=dm_embed)
-                    
-                except discord.Forbidden:
-                    logger.warning(f"Couldn't send DM to {staff_member.name}")
-                
-                logger.info(f"✅ Created staff invite {invite.code} for {staff_member.name}")
-                
-            else:
-                await ctx.send("❌ Failed to save staff invite configuration")
-                
-        except Exception as e:
-            logger.error(f"❌ Error creating staff invite: {e}")
-            await ctx.send(f"❌ Error: {str(e)}")
+
     
     @commands.hybrid_command(name="list_staff_invites")
     @commands.has_permissions(manage_guild=True)
@@ -324,7 +234,7 @@ class InviteTracker(commands.Cog):
             if len(embed.fields) == 0:
                 embed.add_field(
                     name="📝 No Staff Invites",
-                    value="No staff invites configured yet. Use `/create_staff_invite` to create them.",
+                    value="No staff invites configured yet. Staff invites are managed through the VIP upgrade system.",
                     inline=False
                 )
             
