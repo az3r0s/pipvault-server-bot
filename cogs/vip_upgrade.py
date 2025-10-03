@@ -27,6 +27,7 @@ class VIPUpgrade(commands.Cog):
         self.bot = bot
         self.VIP_UPGRADE_CHANNEL_ID = int(os.getenv('VIP_UPGRADE_CHANNEL_ID', '0'))
         self.VIP_ROLE_ID = os.getenv('VIP_ROLE_ID', '0')
+        self.GUILD_ID = os.getenv('DISCORD_GUILD_ID', '0')
         self.STAFF_NOTIFICATION_CHANNEL_ID = int(os.getenv('STAFF_NOTIFICATION_CHANNEL_ID', '0'))
         
         # Add persistent views
@@ -411,9 +412,23 @@ class VIPUpgrade(commands.Cog):
                     )
                     
                     await staff_member.send(embed=dm_embed)
+                    await interaction.followup.send(f"✅ **DM sent successfully** to {staff_member.mention}", ephemeral=True)
                     
                 except discord.Forbidden:
-                    logger.warning(f"Couldn't send invite DM to {staff_member.name}")
+                    logger.warning(f"Couldn't send invite DM to {staff_member.name} - DMs disabled")
+                    await interaction.followup.send(
+                        f"⚠️ **Could not send DM** to {staff_member.mention}\n"
+                        f"They may have DMs disabled from server members.\n"
+                        f"Please share the invite link with them manually:\n{invite.url}", 
+                        ephemeral=True
+                    )
+                except Exception as dm_error:
+                    logger.error(f"Error sending DM to {staff_member.name}: {dm_error}")
+                    await interaction.followup.send(
+                        f"❌ **Error sending DM** to {staff_member.mention}: {str(dm_error)}\n"
+                        f"Please share the invite link with them manually:\n{invite.url}", 
+                        ephemeral=True
+                    )
             
             else:
                 await interaction.response.send_message("❌ Failed to save staff invite configuration", ephemeral=True)
@@ -421,6 +436,45 @@ class VIPUpgrade(commands.Cog):
         except Exception as e:
             logger.error(f"❌ Error creating staff invite: {e}")
             await interaction.response.send_message(f"❌ Error: {str(e)}", ephemeral=True)
+    
+    @app_commands.command(name="test_dm", description="[ADMIN] Test if bot can DM a user")
+    @app_commands.describe(user="User to test DM with")
+    @app_commands.default_permissions(administrator=True)
+    async def test_dm(self, interaction: discord.Interaction, user: discord.Member):
+        """Test if the bot can send DMs to a specific user"""
+        try:
+            test_embed = discord.Embed(
+                title="🧪 DM Test Message",
+                description="This is a test message from the Zinrai Server Bot to verify DM functionality.",
+                color=discord.Color.blue()
+            )
+            test_embed.add_field(
+                name="✅ Success!",
+                value="If you're seeing this message, the bot can successfully send you DMs.",
+                inline=False
+            )
+            
+            await user.send(embed=test_embed)
+            
+            await interaction.response.send_message(
+                f"✅ **DM Test Successful!** Successfully sent test message to {user.mention}",
+                ephemeral=True
+            )
+            
+        except discord.Forbidden:
+            await interaction.response.send_message(
+                f"❌ **DM Test Failed!** Cannot send DMs to {user.mention}\n"
+                f"**Possible reasons:**\n"
+                f"• They have DMs disabled from server members\n"
+                f"• They have blocked the bot\n"
+                f"• Their privacy settings prevent DMs",
+                ephemeral=True
+            )
+        except Exception as e:
+            await interaction.response.send_message(
+                f"❌ **DM Test Error!** Error sending DM to {user.mention}: {str(e)}",
+                ephemeral=True
+            )
     
     @app_commands.command(name="list_staff_invites", description="[ADMIN] List all configured staff invites")
     @app_commands.default_permissions(administrator=True)

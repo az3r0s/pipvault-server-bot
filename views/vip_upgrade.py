@@ -762,7 +762,7 @@ class ImageUploadModal(discord.ui.Modal):
             await interaction.response.send_message(
                 "🔥 **Please send your email screenshot NOW** (within 60 seconds)!\n"
                 "Just drag & drop or paste your image in this channel.",
-                ephemeral=False
+                ephemeral=True
             )
             
             # Set up listener for the next message with attachment
