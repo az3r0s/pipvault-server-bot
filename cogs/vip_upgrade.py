@@ -606,6 +606,107 @@ class VIPUpgrade(commands.Cog):
             logger.error(f"❌ Error deleting staff invite: {e}")
             await interaction.response.send_message(f"❌ Error: {str(e)}", ephemeral=True)
     
+    @app_commands.command(name="delete_invite_by_code", description="[ADMIN] Delete invite by specific invite code")
+    @app_commands.describe(invite_code="The invite code to delete (e.g., F82HtFnC6X)")
+    @app_commands.default_permissions(administrator=True)
+    async def delete_invite_by_code(self, interaction: discord.Interaction, invite_code: str):
+        """Delete an invite by its specific code - useful when Discord IDs don't match"""
+        try:
+            # Find the invite in database
+            staff_configs = self.bot.db.get_all_staff_configs()
+            target_config = None
+            
+            for config in staff_configs:
+                if config.get('invite_code') == invite_code:
+                    target_config = config
+                    break
+            
+            if not target_config:
+                await interaction.response.send_message(
+                    f"❌ **Invite code `{invite_code}` not found** in staff configuration.",
+                    ephemeral=True
+                )
+                return
+            
+            # Find and delete the Discord invite
+            discord_invite = None
+            for invite in await interaction.guild.invites():
+                if invite.code == invite_code:
+                    discord_invite = invite
+                    break
+            
+            # Delete from Discord if it exists
+            if discord_invite:
+                try:
+                    await discord_invite.delete(reason=f"Invite deletion by code by {interaction.user.display_name}")
+                    discord_deleted = True
+                except Exception as e:
+                    logger.warning(f"Could not delete Discord invite {invite_code}: {e}")
+                    discord_deleted = False
+            else:
+                discord_deleted = False
+            
+            # Clear the invite code from database
+            success = self.bot.db.update_staff_invite_code(target_config['staff_id'], None)
+            
+            if success:
+                # Try to find the Discord user
+                staff_member = interaction.guild.get_member(target_config['staff_id'])
+                staff_name = staff_member.display_name if staff_member else target_config['staff_username']
+                
+                embed = discord.Embed(
+                    title="✅ Invite Deleted by Code",
+                    description=f"Successfully removed invite `{invite_code}`",
+                    color=discord.Color.green(),
+                    timestamp=datetime.now()
+                )
+                
+                embed.add_field(
+                    name="👤 Staff Member",
+                    value=(
+                        f"**Username:** {target_config['staff_username']}\n"
+                        f"**Discord ID:** {target_config['staff_id']}\n"
+                        f"**Current User:** {staff_member.mention if staff_member else '❌ Not found in server'}"
+                    ),
+                    inline=False
+                )
+                
+                embed.add_field(
+                    name="🗑️ Cleanup Status",
+                    value=(
+                        f"**Invite Code:** `{invite_code}`\n"
+                        f"**Discord Invite:** {'✅ Deleted' if discord_deleted else '⚠️ Not found/already deleted'}\n"
+                        f"**Database:** ✅ Cleared"
+                    ),
+                    inline=False
+                )
+                
+                if staff_member:
+                    embed.add_field(
+                        name="📝 Next Steps",
+                        value=f"You can create a new invite for {staff_member.mention} using `/create_staff_invite`",
+                        inline=False
+                    )
+                else:
+                    embed.add_field(
+                        name="⚠️ Note",
+                        value="User not found in server. You may need to update their Discord ID in staff config.",
+                        inline=False
+                    )
+                
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+                logger.info(f"🗑️ Deleted invite by code: {invite_code} for {staff_name}")
+                
+            else:
+                await interaction.response.send_message(
+                    f"❌ Failed to remove invite configuration for code `{invite_code}`",
+                    ephemeral=True
+                )
+                
+        except Exception as e:
+            logger.error(f"❌ Error deleting invite by code: {e}")
+            await interaction.response.send_message(f"❌ Error: {str(e)}", ephemeral=True)
+    
     @app_commands.command(name="vip_stats", description="View VIP upgrade statistics")
     @app_commands.default_permissions(manage_guild=True)
     async def vip_stats(self, interaction: discord.Interaction):
