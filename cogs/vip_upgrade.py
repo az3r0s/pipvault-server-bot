@@ -743,11 +743,60 @@ class VIPUpgrade(commands.Cog):
             # Get staff member's invite code
             staff_config = self.bot.db.get_staff_by_discord_id(staff_member.id)
             if not staff_config or not staff_config.get('invite_code'):
-                await interaction.response.send_message(
-                    f"❌ **{staff_member.display_name}** doesn't have an invite code configured.\n"
-                    f"Use `/create_staff_invite` to create one first.",
-                    ephemeral=True
+                # Debug: Let's check if the user exists with a different ID
+                all_configs = self.bot.db.get_all_staff_configs()
+                matching_configs = []
+                for config in all_configs:
+                    if config.get('staff_username', '').lower() == staff_member.display_name.lower():
+                        matching_configs.append(config)
+                
+                embed = discord.Embed(
+                    title="❌ Staff Member Not Found",
+                    description=f"**{staff_member.display_name}** doesn't have an invite code configured.",
+                    color=discord.Color.red()
                 )
+                
+                embed.add_field(
+                    name="🔍 Debug Info",
+                    value=(
+                        f"**Looking for Discord ID:** {staff_member.id}\n"
+                        f"**Username:** {staff_member.display_name}\n"
+                        f"**Possible matches:** {len(matching_configs)}"
+                    ),
+                    inline=False
+                )
+                
+                if matching_configs:
+                    match_info = []
+                    for config in matching_configs[:3]:  # Show max 3 matches
+                        match_info.append(
+                            f"• Username: {config.get('staff_username', 'Unknown')}\n"
+                            f"  Discord ID: {config.get('staff_id', 'Unknown')}\n"
+                            f"  Invite Code: {config.get('invite_code', 'None')}"
+                        )
+                    
+                    embed.add_field(
+                        name="🔧 Possible Discord ID Mismatch",
+                        value='\n'.join(match_info),
+                        inline=False
+                    )
+                    
+                    embed.add_field(
+                        name="💡 Solution",
+                        value=(
+                            "Use `/delete_invite_by_code [code]` to delete the old entry,\n"
+                            "then `/create_staff_invite` to create a new one with correct ID."
+                        ),
+                        inline=False
+                    )
+                else:
+                    embed.add_field(
+                        name="💡 Solution", 
+                        value="Use `/create_staff_invite` to create an invite for this staff member.",
+                        inline=False
+                    )
+                
+                await interaction.response.send_message(embed=embed, ephemeral=True)
                 return
             
             invite_code = staff_config['invite_code']
@@ -997,6 +1046,86 @@ class VIPUpgrade(commands.Cog):
             
         except Exception as e:
             logger.error(f"❌ Error listing users by code: {e}")
+            await interaction.response.send_message(f"❌ Error: {str(e)}", ephemeral=True)
+    
+    @app_commands.command(name="fix_staff_discord_id", description="[ADMIN] Fix Discord ID mismatch for staff member")
+    @app_commands.describe(
+        staff_member="The current Discord user",
+        old_invite_code="Their existing invite code that needs ID updated"
+    )
+    @app_commands.default_permissions(administrator=True)
+    async def fix_staff_discord_id(self, interaction: discord.Interaction, staff_member: discord.Member, old_invite_code: str):
+        """Fix Discord ID mismatch for a staff member"""
+        try:
+            # Find the staff config with the old invite code
+            all_configs = self.bot.db.get_all_staff_configs()
+            target_config = None
+            
+            for config in all_configs:
+                if config.get('invite_code') == old_invite_code:
+                    target_config = config
+                    break
+            
+            if not target_config:
+                await interaction.response.send_message(
+                    f"❌ No staff configuration found with invite code `{old_invite_code}`",
+                    ephemeral=True
+                )
+                return
+            
+            old_discord_id = target_config.get('staff_id')
+            new_discord_id = staff_member.id
+            
+            if old_discord_id == new_discord_id:
+                await interaction.response.send_message(
+                    f"✅ Discord ID already matches! {staff_member.mention} is correctly configured.",
+                    ephemeral=True
+                )
+                return
+            
+            # Update the Discord ID in the database
+            success = self.bot.db.update_staff_discord_id(old_discord_id, new_discord_id)
+            
+            if success:
+                embed = discord.Embed(
+                    title="✅ Discord ID Updated Successfully",
+                    description=f"Fixed Discord ID mismatch for {staff_member.mention}",
+                    color=discord.Color.green()
+                )
+                
+                embed.add_field(
+                    name="🔧 Changes Made",
+                    value=(
+                        f"**Staff Member:** {staff_member.mention}\n"
+                        f"**Invite Code:** `{old_invite_code}`\n"
+                        f"**Old Discord ID:** {old_discord_id}\n"
+                        f"**New Discord ID:** {new_discord_id}"
+                    ),
+                    inline=False
+                )
+                
+                embed.add_field(
+                    name="✅ What Works Now",
+                    value=(
+                        f"• `/list_invite_users {staff_member.mention}` will work\n"
+                        f"• `/delete_staff_invite {staff_member.mention}` will work\n"
+                        f"• VIP upgrade attribution will work correctly\n"
+                        f"• All existing invite tracking data preserved"
+                    ),
+                    inline=False
+                )
+                
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+                logger.info(f"✅ Fixed Discord ID for {staff_member.display_name}: {old_discord_id} → {new_discord_id}")
+                
+            else:
+                await interaction.response.send_message(
+                    f"❌ Failed to update Discord ID in database. Please contact a developer.",
+                    ephemeral=True
+                )
+                
+        except Exception as e:
+            logger.error(f"❌ Error fixing staff Discord ID: {e}")
             await interaction.response.send_message(f"❌ Error: {str(e)}", ephemeral=True)
     
     @app_commands.command(name="manage_invite_permissions", description="[ADMIN] Manage who can create invites")

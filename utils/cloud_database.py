@@ -694,6 +694,46 @@ class CloudAPIServerDatabase:
             logger.error(f"❌ Error getting users by invite code: {e}")
             return []
 
+    def update_staff_discord_id(self, old_discord_id: int, new_discord_id: int) -> bool:
+        """Update Discord ID for a staff member (fixes ID mismatches)"""
+        try:
+            conn = sqlite3.connect(self.db_path, timeout=10.0)
+            cursor = conn.cursor()
+            
+            # Update staff_invites table
+            cursor.execute('''
+                UPDATE staff_invites 
+                SET staff_id = ?
+                WHERE staff_id = ?
+            ''', (new_discord_id, old_discord_id))
+            
+            # Update any VIP requests that reference this staff member
+            cursor.execute('''
+                UPDATE vip_requests 
+                SET staff_id = ?
+                WHERE staff_id = ?
+            ''', (new_discord_id, old_discord_id))
+            
+            # Update invite tracking if the staff member was an inviter
+            cursor.execute('''
+                UPDATE invite_tracking 
+                SET inviter_id = ?
+                WHERE inviter_id = ?
+            ''', (new_discord_id, old_discord_id))
+            
+            conn.commit()
+            conn.close()
+            
+            # Trigger backup to sync changes
+            self.trigger_backup()
+            
+            logger.info(f"✅ Updated Discord ID: {old_discord_id} → {new_discord_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Error updating staff Discord ID: {e}")
+            return False
+
     def trigger_backup(self):
         """Trigger immediate backup (non-blocking)"""
         try:
