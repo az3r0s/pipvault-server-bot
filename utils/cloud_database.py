@@ -555,6 +555,43 @@ class CloudAPIServerDatabase:
             logger.error(f"❌ Error getting VIP requests: {e}")
             return []
 
+    def get_user_vip_requests(self, user_id: int) -> List[Dict]:
+        """Get all VIP requests for a specific user"""
+        try:
+            conn = sqlite3.connect(self.db_path, timeout=10.0)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                SELECT id, user_id, username, request_type, staff_id, status, 
+                       vantage_email, created_at, updated_at
+                FROM vip_requests 
+                WHERE user_id = ?
+                ORDER BY created_at DESC
+            ''', (user_id,))
+            
+            results = cursor.fetchall()
+            conn.close()
+            
+            requests = []
+            for row in results:
+                requests.append({
+                    'id': row[0],
+                    'user_id': row[1],
+                    'username': row[2],
+                    'request_type': row[3],
+                    'staff_id': row[4],
+                    'status': row[5],
+                    'vantage_email': row[6],
+                    'created_at': row[7],
+                    'updated_at': row[8]
+                })
+            
+            return requests
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting user VIP requests: {e}")
+            return []
+
     def get_staff_vip_stats(self, staff_id: int) -> Dict:
         """Get VIP conversion stats for a staff member"""
         try:
@@ -619,6 +656,42 @@ class CloudAPIServerDatabase:
             
         except Exception as e:
             logger.error(f"❌ Error getting all staff configs: {e}")
+            return []
+
+    def get_users_by_invite_code(self, invite_code: str) -> List[Dict]:
+        """Get all users who joined through a specific invite code"""
+        try:
+            conn = sqlite3.connect(self.db_path, timeout=10.0)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                SELECT user_id, username, invite_code, inviter_id, inviter_username, 
+                       joined_at, invite_uses_before, invite_uses_after
+                FROM invite_tracking 
+                WHERE invite_code = ?
+                ORDER BY joined_at DESC
+            ''', (invite_code,))
+            
+            results = cursor.fetchall()
+            conn.close()
+            
+            users = []
+            for row in results:
+                users.append({
+                    'user_id': row[0],
+                    'username': row[1],
+                    'invite_code': row[2],
+                    'inviter_id': row[3],
+                    'inviter_username': row[4],
+                    'joined_at': row[5],
+                    'invite_uses_before': row[6],
+                    'invite_uses_after': row[7]
+                })
+            
+            return users
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting users by invite code: {e}")
             return []
 
     def trigger_backup(self):

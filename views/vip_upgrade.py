@@ -263,6 +263,91 @@ async def send_staff_vip_notification(bot, staff_discord_id: int, user_id: int, 
     except Exception as e:
         logger.error(f"❌ Error sending staff notification: {e}")
 
+class VIPRestartView(discord.ui.View):
+    """View for handling VIP request restart/cancel"""
+    
+    def __init__(self, user_id: int, active_requests: list):
+        super().__init__(timeout=300)  # 5 minute timeout
+        self.user_id = user_id
+        self.active_requests = active_requests
+    
+    @discord.ui.button(
+        label="🔄 Cancel & Restart Fresh",
+        style=discord.ButtonStyle.danger,
+        custom_id="vip_restart_fresh"
+    )
+    async def restart_fresh(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Cancel all active requests and start fresh"""
+        try:
+            # Cancel all active requests
+            vip_cog = interaction.client.get_cog('VIPUpgrade')
+            db = vip_cog.bot.db if vip_cog else None
+            
+            if db:
+                cancelled_count = 0
+                for request in self.active_requests:
+                    if db.update_vip_request_status(request.get('id'), 'cancelled'):
+                        cancelled_count += 1
+                
+                embed = discord.Embed(
+                    title="✅ Requests Cancelled - Starting Fresh",
+                    description=f"Cancelled {cancelled_count} active request(s). You can now start a new VIP upgrade process.",
+                    color=discord.Color.green()
+                )
+                
+                # Show the account question immediately
+                account_embed = discord.Embed(
+                    title="👑 VIP Upgrade Process",
+                    description="Do you already have a Vantage trading account?",
+                    color=discord.Color.blue()
+                )
+                account_embed.add_field(
+                    name="🤔 Choose Your Path",
+                    value=(
+                        "**✅ Yes** - I have an existing Vantage account\n"
+                        "**🆕 No** - I need to create a new account\n\n"
+                        "Select the option that applies to you:"
+                    ),
+                    inline=False
+                )
+                
+                # Disable restart buttons
+                for item in self.children:
+                    item.disabled = True
+                
+                # Send confirmation then show new flow
+                await interaction.response.edit_message(embed=embed, view=self)
+                
+                # Show fresh VIP upgrade process
+                account_view = VantageAccountView(interaction.user.id, vip_cog.bot if vip_cog else None)
+                await interaction.followup.send(embed=account_embed, view=account_view, ephemeral=True)
+                
+            else:
+                await interaction.response.send_message("❌ Database unavailable. Please try again.", ephemeral=True)
+                
+        except Exception as e:
+            logger.error(f"Error restarting VIP process: {e}")
+            await interaction.response.send_message("❌ An error occurred. Please contact an admin.", ephemeral=True)
+    
+    @discord.ui.button(
+        label="✅ Keep Existing & Continue",
+        style=discord.ButtonStyle.secondary,
+        custom_id="vip_keep_existing"
+    )
+    async def keep_existing(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Keep existing requests and just dismiss this message"""
+        embed = discord.Embed(
+            title="✅ Keeping Existing Requests",
+            description="Your active VIP requests remain unchanged. You can continue where you left off or wait for staff review.",
+            color=discord.Color.blue()
+        )
+        
+        # Disable buttons
+        for item in self.children:
+            item.disabled = True
+            
+        await interaction.response.edit_message(embed=embed, view=self)
+
 class VIPUpgradeView(discord.ui.View):
     """Main VIP upgrade button view"""
     
@@ -281,6 +366,48 @@ class VIPUpgradeView(discord.ui.View):
             # Load staff config to check if user is staff
             vip_cog = interaction.client.get_cog('VIPUpgrade')
             config = vip_cog.bot.db.load_staff_config() if vip_cog else None
+            
+            # Check for existing active requests for this user
+            db = vip_cog.bot.db if vip_cog else None
+            if db:
+                # Check for pending/awaiting requests
+                pending_requests = db.get_user_vip_requests(interaction.user.id)
+                active_requests = [req for req in pending_requests if req.get('status') in ['pending', 'awaiting_proof', 'email_sent']]
+                
+                if active_requests:
+                    # User has active requests - offer to cancel and restart
+                    embed = discord.Embed(
+                        title="⚠️ Active VIP Request Found",
+                        description=(
+                            f"You already have {len(active_requests)} active VIP request(s).\n\n"
+                            "**Options:**\n"
+                            "• **Continue** - Keep existing request and dismiss this message\n"
+                            "• **Restart** - Cancel all active requests and start fresh\n\n"
+                            "Choose wisely - restarting will cancel any progress you've made."
+                        ),
+                        color=discord.Color.orange()
+                    )
+                    
+                    # Show active requests
+                    request_info = []
+                    for req in active_requests[:3]:  # Show max 3
+                        status_emoji = {
+                            'pending': '⏳',
+                            'email_sent': '📧', 
+                            'awaiting_proof': '📸'
+                        }.get(req.get('status', 'pending'), '❓')
+                        request_info.append(f"{status_emoji} Request #{req.get('id', 'Unknown')} - {req.get('status', 'Unknown').replace('_', ' ').title()}")
+                    
+                    embed.add_field(
+                        name="📋 Your Active Requests",
+                        value='\n'.join(request_info) if request_info else "No details available",
+                        inline=False
+                    )
+                    
+                    # Create restart view
+                    restart_view = VIPRestartView(interaction.user.id, active_requests)
+                    await interaction.response.send_message(embed=embed, view=restart_view, ephemeral=True)
+                    return
             
             # Check if user is staff member (either in config or has admin permissions)
             is_staff = False
@@ -677,32 +804,16 @@ class EmailProofModal(discord.ui.Modal):
     )
     
     async def on_submit(self, interaction: discord.Interaction):
-        """Handle email proof submission"""
+        """Handle email proof submission - now with direct file upload"""
         try:
-            # Show upload interface
-            embed = discord.Embed(
-                title="📸 Upload Email Screenshot",
-                description=(
-                    "Please **upload a screenshot** of your sent email.\n\n"
-                    "**Required in screenshot:**\n"
-                    "• Show the email was sent to support@vantage.com\n"
-                    "• Include the subject line and your message\n"
-                    "• Make sure your email address is visible\n\n"
-                    "Click the button below to upload your screenshot."
-                ),
-                color=discord.Color.blue()
-            )
-            
-            embed.set_footer(text=f"Request ID: {self.request_id}")
-            
             # Update status to awaiting proof
             bot = interaction.client
             db = bot.db
             db.update_vip_request_status(self.request_id, 'awaiting_proof')
             
-            # Show upload interface
-            upload_view = ImageUploadView(self.request_id)
-            await interaction.response.send_message(embed=embed, view=upload_view, ephemeral=True)
+            # Show the file upload modal directly
+            upload_modal = EmailProofUploadModal(self.request_id)
+            await interaction.response.send_modal(upload_modal)
             
         except Exception as e:
             logger.error(f"Error in email proof modal: {e}")
@@ -711,137 +822,127 @@ class EmailProofModal(discord.ui.Modal):
                 ephemeral=True
             )
 
-class ImageUploadView(discord.ui.View):
-    """View for users to upload email proof screenshot"""
+class EmailProofUploadModal(discord.ui.Modal):
+    """Modal for uploading email proof screenshot with file attachment"""
     
     def __init__(self, request_id: int):
-        super().__init__(timeout=1800)  # 30 minute timeout
+        super().__init__(title="📸 Upload Email Proof Screenshot")
         self.request_id = request_id
-        self.uploaded = False
     
-    @discord.ui.button(
-        label="📸 Upload Screenshot",
-        style=discord.ButtonStyle.primary,
-        custom_id="upload_screenshot"
-    )
-    async def upload_screenshot(self, interaction: discord.Interaction, button: discord.ui.Button):
-        """Handle screenshot upload"""
-        try:
-            if self.uploaded:
-                await interaction.response.send_message("✅ Screenshot already uploaded for this request.", ephemeral=True)
-                return
-                
-            # Show modal asking user to attach image in next message
-            modal = ImageUploadModal(self.request_id, self)
-            await interaction.response.send_modal(modal)
-            
-        except Exception as e:
-            logger.error(f"Error in image upload: {e}")
-            await interaction.response.send_message("❌ An error occurred. Please try again.", ephemeral=True)
-
-class ImageUploadModal(discord.ui.Modal):
-    """Modal instructing user to attach image"""
-    
-    def __init__(self, request_id: int, view: ImageUploadView):
-        super().__init__(title="📸 Attach Your Screenshot")
-        self.request_id = request_id
-        self.view = view
-    
-    instructions = discord.ui.TextInput(
-        label="Ready to upload?",
-        placeholder="Type: Ready - then click Submit and immediately send your screenshot",
-        style=discord.TextStyle.short,
-        default="Ready",
-        max_length=50,
+    screenshot_note = discord.ui.TextInput(
+        label="Upload Your Email Screenshot",
+        placeholder="Please attach your email screenshot using the attachment button below this text box, then click Submit",
+        style=discord.TextStyle.paragraph,
+        default="I am uploading my email proof screenshot",
+        max_length=500,
         required=True
     )
     
     async def on_submit(self, interaction: discord.Interaction):
-        """Instruct user to send image immediately"""
+        """Handle screenshot upload with attachment"""
         try:
-            await interaction.response.send_message(
-                "🔥 **Please send your email screenshot NOW** (within 60 seconds)!\n"
-                "Just drag & drop or paste your image in this channel.",
-                ephemeral=True
-            )
-            
-            # Set up listener for the next message with attachment
-            bot = interaction.client
-            
-            def check_image(message):
-                return (
-                    message.author.id == interaction.user.id and 
-                    message.channel.id == interaction.channel.id and
-                    len(message.attachments) > 0 and
-                    any(att.content_type and att.content_type.startswith('image/') for att in message.attachments)
-                )
-            
-            try:
-                # Wait for image upload (60 seconds)
-                message = await bot.wait_for('message', check=check_image, timeout=60.0)
-                
-                # Process the uploaded image
-                image_attachment = next(att for att in message.attachments if att.content_type and att.content_type.startswith('image/'))
-                
-                # Update request status and notify staff
-                db = bot.db
-                db.update_vip_request_status(self.request_id, 'proof_uploaded')
-                
-                # Send confirmation
-                embed = discord.Embed(
-                    title="✅ Screenshot Received!",
-                    description=(
-                        "Thank you! Your email proof has been received.\n\n"
-                        "**Next Steps:**\n"
-                        "• Staff will review your screenshot\n"
-                        "• VIP access will be granted within 24 hours if approved\n"
-                        "• You'll receive a notification when complete"
-                    ),
-                    color=discord.Color.green()
-                )
-                embed.set_footer(text=f"Request ID: {self.request_id}")
-                
-                await message.reply(embed=embed)
-                
-                # Send staff DM with the actual image
-                try:
-                    request_details = db.get_vip_requests_by_status('proof_uploaded')
-                    current_request = None
-                    for req in request_details:
-                        if req['id'] == self.request_id:
-                            current_request = req
-                            break
-                    
-                    if current_request and current_request['staff_id']:
-                        staff_config = db.get_staff_by_discord_id(current_request['staff_id'])
-                        if staff_config:
-                            await send_staff_vip_notification(
-                                bot=bot,
-                                staff_discord_id=current_request['staff_id'],
-                                user_id=interaction.user.id,
-                                user_name=interaction.user.display_name,
-                                request_type='existing_account',
-                                request_id=self.request_id,
-                                staff_config=staff_config,
-                                image_proof=image_attachment
-                            )
-                except Exception as e:
-                    logger.error(f"Failed to send staff notification with image: {e}")
-                
-                # Mark as uploaded
-                self.view.uploaded = True
-                for item in self.view.children:
-                    item.disabled = True
-                
-            except asyncio.TimeoutError:
-                await interaction.followup.send(
-                    "⏰ Upload timeout. Please click the Upload Screenshot button again and send your image immediately.",
+            # Check if user attached any files
+            if not hasattr(interaction, 'data') or 'attachments' not in interaction.data or not interaction.data['attachments']:
+                await interaction.response.send_message(
+                    "❌ **No screenshot attached!**\n\n"
+                    "Please try again and make sure to:\n"
+                    "1. Click the 📎 attachment button in the modal\n"
+                    "2. Select your email screenshot file\n"
+                    "3. Then click Submit\n\n"
+                    "**Required:** Screenshot showing your email was sent to Vantage support.",
                     ephemeral=True
                 )
+                return
+            
+            # Get the attachment
+            attachment_data = interaction.data['attachments'][0]
+            attachment_url = attachment_data.get('url')
+            attachment_filename = attachment_data.get('filename', 'screenshot')
+            attachment_content_type = attachment_data.get('content_type', '')
+            
+            # Validate it's an image
+            if not attachment_content_type.startswith('image/'):
+                await interaction.response.send_message(
+                    "❌ **Invalid file type!**\n\n"
+                    "Please upload an **image file** (PNG, JPG, GIF, etc.) of your email screenshot.",
+                    ephemeral=True
+                )
+                return
+            
+            # Update request status and notify staff
+            bot = interaction.client
+            db = bot.db
+            success = db.update_vip_request_status(self.request_id, 'proof_uploaded')
+            
+            if not success:
+                await interaction.response.send_message(
+                    "❌ Failed to update request status. Please contact an admin.",
+                    ephemeral=True
+                )
+                return
+            
+            # Send confirmation to user
+            embed = discord.Embed(
+                title="✅ Screenshot Uploaded Successfully!",
+                description=(
+                    "Thank you! Your email proof has been received and forwarded to staff.\n\n"
+                    "**What happens next:**\n"
+                    "• Staff will review your email screenshot\n"
+                    "• You'll receive a DM notification with the decision\n"
+                    "• VIP access will be granted within 24 hours if approved\n\n"
+                    "**Uploaded file:** " + attachment_filename
+                ),
+                color=discord.Color.green()
+            )
+            embed.set_footer(text=f"Request ID: {self.request_id}")
+            
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            
+            # Send staff DM with the screenshot
+            try:
+                # Get request details to find responsible staff member
+                request_details = db.get_vip_requests_by_status('proof_uploaded')
+                current_request = None
+                for req in request_details:
+                    if req['id'] == self.request_id:
+                        current_request = req
+                        break
+                
+                if current_request and current_request['staff_id']:
+                    staff_config = db.get_staff_by_discord_id(current_request['staff_id'])
+                    if staff_config:
+                        # Create a mock attachment object for the notification
+                        class MockAttachment:
+                            def __init__(self, url, filename, content_type):
+                                self.url = url
+                                self.filename = filename  
+                                self.content_type = content_type
+                        
+                        mock_attachment = MockAttachment(attachment_url, attachment_filename, attachment_content_type)
+                        
+                        await send_staff_vip_notification(
+                            bot=bot,
+                            staff_discord_id=current_request['staff_id'],
+                            user_id=interaction.user.id,
+                            user_name=interaction.user.display_name,
+                            request_type='existing_account',
+                            request_id=self.request_id,
+                            staff_config=staff_config,
+                            image_proof=mock_attachment
+                        )
+                        
+                        logger.info(f"✅ Email proof uploaded for request {self.request_id} by {interaction.user.name}")
+                        
+            except Exception as e:
+                logger.error(f"Failed to send staff notification with uploaded image: {e}")
+                # Still show success to user since the upload worked
                 
         except Exception as e:
-            logger.error(f"Error in image upload modal: {e}")
-            await interaction.followup.send("❌ An error occurred. Please try again.", ephemeral=True)
+            logger.error(f"Error in email proof upload modal: {e}")
+            await interaction.response.send_message(
+                "❌ An error occurred processing your upload. Please try again or contact an admin.",
+                ephemeral=True
+            )
 
 
 class AccountCreatedView(discord.ui.View):

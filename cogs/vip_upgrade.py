@@ -734,6 +734,271 @@ class VIPUpgrade(commands.Cog):
             logger.error(f"❌ Error showing VIP stats: {e}")
             await interaction.response.send_message(f"❌ Error: {str(e)}", ephemeral=True)
     
+    @app_commands.command(name="list_invite_users", description="[ADMIN] Show all users who joined through a specific invite")
+    @app_commands.describe(staff_member="The staff member whose invite users to list")
+    @app_commands.default_permissions(administrator=True)
+    async def list_invite_users(self, interaction: discord.Interaction, staff_member: discord.Member):
+        """List all users who joined through a specific staff member's invite"""
+        try:
+            # Get staff member's invite code
+            staff_config = self.bot.db.get_staff_by_discord_id(staff_member.id)
+            if not staff_config or not staff_config.get('invite_code'):
+                await interaction.response.send_message(
+                    f"❌ **{staff_member.display_name}** doesn't have an invite code configured.\n"
+                    f"Use `/create_staff_invite` to create one first.",
+                    ephemeral=True
+                )
+                return
+            
+            invite_code = staff_config['invite_code']
+            
+            # Get all users who joined through this invite
+            invite_users = self.bot.db.get_users_by_invite_code(invite_code)
+            
+            if not invite_users:
+                embed = discord.Embed(
+                    title="📋 No Users Found",
+                    description=f"No users have joined through **{staff_member.display_name}**'s invite yet.",
+                    color=discord.Color.orange()
+                )
+                embed.add_field(
+                    name="📊 Invite Details",
+                    value=(
+                        f"**Staff Member:** {staff_member.mention}\n"
+                        f"**Invite Code:** `{invite_code}`\n"
+                        f"**Total Joins:** 0"
+                    ),
+                    inline=False
+                )
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+                return
+            
+            # Create embed with user list
+            embed = discord.Embed(
+                title=f"👥 Users from {staff_member.display_name}'s Invite",
+                description=f"All users who joined through invite code `{invite_code}`",
+                color=discord.Color.blue(),
+                timestamp=datetime.now()
+            )
+            
+            embed.add_field(
+                name="📊 Summary",
+                value=(
+                    f"**Staff Member:** {staff_member.mention}\n"
+                    f"**Invite Code:** `{invite_code}`\n"
+                    f"**Total Joins:** {len(invite_users)}"
+                ),
+                inline=False
+            )
+            
+            # Show user list (paginated if too many)
+            user_list = []
+            vip_count = 0
+            active_count = 0
+            
+            for i, user_data in enumerate(invite_users[:25]):  # Limit to 25 to avoid embed limits
+                user_id = user_data.get('user_id')
+                username = user_data.get('username', 'Unknown')
+                join_date = user_data.get('joined_at', 'Unknown')
+                
+                # Check if user is still in server
+                member = interaction.guild.get_member(int(user_id)) if user_id else None
+                
+                # Check if user has VIP role
+                has_vip = False
+                if member and self.VIP_ROLE_ID:
+                    vip_role = interaction.guild.get_role(int(self.VIP_ROLE_ID))
+                    has_vip = vip_role and vip_role in member.roles
+                
+                if member:
+                    active_count += 1
+                if has_vip:
+                    vip_count += 1
+                
+                # Format user entry
+                status_emoji = "🟢" if member else "🔴"
+                vip_emoji = "👑" if has_vip else ""
+                user_mention = member.mention if member else f"~~{username}~~"
+                
+                user_list.append(f"{i+1}. {status_emoji} {user_mention} {vip_emoji}")
+            
+            if user_list:
+                embed.add_field(
+                    name=f"👥 Users (Showing {len(user_list)}/{len(invite_users)})",
+                    value='\n'.join(user_list),
+                    inline=False
+                )
+            
+                embed.add_field(
+                    name="📈 Statistics",
+                    value=(
+                        f"🟢 **Active in Server:** {active_count}/{len(invite_users)}\n"
+                        f"👑 **VIP Members:** {vip_count}/{len(invite_users)}\n"
+                        f"📊 **VIP Conversion Rate:** {(vip_count/len(invite_users)*100):.1f}%"
+                    ),
+                    inline=True
+                )
+                
+                # Add IB attribution info
+                embed.add_field(
+                    name="💼 IB Attribution",
+                    value=(
+                        f"**IB Code:** {staff_config.get('vantage_ib_code', 'N/A')}\n"
+                        f"**Referral Link:** [View]({staff_config.get('vantage_referral_link', '#')})"
+                    ),
+                    inline=True
+                )
+            
+            if len(invite_users) > 25:
+                embed.set_footer(text=f"Showing first 25 of {len(invite_users)} users. Use pagination commands for more.")
+            else:
+                embed.set_footer(text=f"🟢 Active in server | 👑 VIP member | 🔴 Left server")
+            
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            
+        except Exception as e:
+            logger.error(f"❌ Error listing invite users: {e}")
+            await interaction.response.send_message(f"❌ Error: {str(e)}", ephemeral=True)
+    
+    @app_commands.command(name="list_users_by_code", description="[ADMIN] Show all users who joined through a specific invite code")
+    @app_commands.describe(invite_code="The invite code to look up (e.g., abc123def)")
+    @app_commands.default_permissions(administrator=True)
+    async def list_users_by_code(self, interaction: discord.Interaction, invite_code: str):
+        """List all users who joined through a specific invite code"""
+        try:
+            # Get all users who joined through this invite code
+            invite_users = self.bot.db.get_users_by_invite_code(invite_code)
+            
+            if not invite_users:
+                embed = discord.Embed(
+                    title="📋 No Users Found",
+                    description=f"No users have joined through invite code `{invite_code}`.",
+                    color=discord.Color.orange()
+                )
+                embed.add_field(
+                    name="💡 Possible Reasons",
+                    value=(
+                        "• Invalid or expired invite code\n"
+                        "• No users have used this invite yet\n"
+                        "• Invite code was deleted/recreated"
+                    ),
+                    inline=False
+                )
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+                return
+            
+            # Find staff member who owns this invite
+            staff_config = None
+            staff_configs = self.bot.db.get_all_staff_configs()
+            for config in staff_configs:
+                if config.get('invite_code') == invite_code:
+                    staff_config = config
+                    break
+            
+            staff_member = None
+            if staff_config:
+                staff_member = interaction.guild.get_member(staff_config['staff_id'])
+            
+            # Create embed with user list
+            embed = discord.Embed(
+                title=f"👥 Users from Invite Code `{invite_code}`",
+                description=f"All users who joined through this invite",
+                color=discord.Color.blue(),
+                timestamp=datetime.now()
+            )
+            
+            if staff_member and staff_config:
+                embed.add_field(
+                    name="👤 Staff Attribution",
+                    value=(
+                        f"**Staff Member:** {staff_member.mention}\n"
+                        f"**IB Code:** {staff_config.get('vantage_ib_code', 'N/A')}\n"
+                        f"**Total Joins:** {len(invite_users)}"
+                    ),
+                    inline=False
+                )
+            else:
+                embed.add_field(
+                    name="📊 Invite Details",
+                    value=(
+                        f"**Invite Code:** `{invite_code}`\n"
+                        f"**Staff Member:** Unknown/Not Found\n"
+                        f"**Total Joins:** {len(invite_users)}"
+                    ),
+                    inline=False
+                )
+            
+            # Show user list (paginated if too many)
+            user_list = []
+            vip_count = 0
+            active_count = 0
+            
+            for i, user_data in enumerate(invite_users[:25]):  # Limit to 25 to avoid embed limits
+                user_id = user_data.get('user_id')
+                username = user_data.get('username', 'Unknown')
+                join_date = user_data.get('joined_at', 'Unknown')
+                
+                # Check if user is still in server
+                member = interaction.guild.get_member(int(user_id)) if user_id else None
+                
+                # Check if user has VIP role
+                has_vip = False
+                if member and self.VIP_ROLE_ID:
+                    vip_role = interaction.guild.get_role(int(self.VIP_ROLE_ID))
+                    has_vip = vip_role and vip_role in member.roles
+                
+                if member:
+                    active_count += 1
+                if has_vip:
+                    vip_count += 1
+                
+                # Format user entry with join date
+                status_emoji = "🟢" if member else "🔴"
+                vip_emoji = "👑" if has_vip else ""
+                user_mention = member.mention if member else f"~~{username}~~"
+                
+                # Format join date
+                if join_date and join_date != 'Unknown':
+                    try:
+                        # Assuming join_date is in ISO format
+                        from datetime import datetime as dt
+                        join_dt = dt.fromisoformat(join_date.replace('Z', '+00:00'))
+                        formatted_date = join_dt.strftime('%m/%d/%y')
+                    except:
+                        formatted_date = "Unknown"
+                else:
+                    formatted_date = "Unknown"
+                
+                user_list.append(f"{i+1}. {status_emoji} {user_mention} {vip_emoji} `({formatted_date})`")
+            
+            if user_list:
+                embed.add_field(
+                    name=f"👥 Users (Showing {len(user_list)}/{len(invite_users)})",
+                    value='\n'.join(user_list),
+                    inline=False
+                )
+            
+                embed.add_field(
+                    name="📈 Statistics",
+                    value=(
+                        f"🟢 **Active in Server:** {active_count}/{len(invite_users)}\n"
+                        f"👑 **VIP Members:** {vip_count}/{len(invite_users)}\n"
+                        f"📊 **VIP Conversion Rate:** {(vip_count/len(invite_users)*100):.1f}%"
+                    ),
+                    inline=True
+                )
+            
+            if len(invite_users) > 25:
+                embed.set_footer(text=f"Showing first 25 of {len(invite_users)} users. 🟢 Active | 👑 VIP | 🔴 Left | (Join Date)")
+            else:
+                embed.set_footer(text=f"🟢 Active in server | 👑 VIP member | 🔴 Left server | (Join Date)")
+            
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            
+        except Exception as e:
+            logger.error(f"❌ Error listing users by code: {e}")
+            await interaction.response.send_message(f"❌ Error: {str(e)}", ephemeral=True)
+    
     @app_commands.command(name="manage_invite_permissions", description="[ADMIN] Manage who can create invites")
     @app_commands.describe(
         action="Enable or disable invite creation for everyone",
