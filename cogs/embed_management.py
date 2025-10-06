@@ -40,47 +40,38 @@ class EmbedManagement(commands.Cog):
         """Send welcome embed to new members"""
         
         embed = discord.Embed(
-            title="🎉 Welcome to Path to Prosperity!",
-            description="Hey there, new trader! Welcome to our premier trading community! 🚀\n\n**Start your journey to financial success with us!**",
+            title="🎉 Welcome to PipVault!",
+            description="*Your Path to Prosperity*\n\nHey there, new trader! Welcome to our premier trading community! 🚀\n\n**Start your journey to financial success with us!**\n\n━━━━━━━━━━━━━━━━━━━━━━━━",
             color=0x00ff00
         )
 
         embed.add_field(
             name="📋 **Getting Started**",
-            value="""• 📜 Read our <#1401614582845280316> to understand community guidelines
-• 📢 Check <#announcements> for important updates
-• 💬 Join conversations in our community channels""",
+            value="""• 📜 Read our <#1401614582845280316> to understand community guidelines\n\n• 📢 Check <#1401614583801712732> for important updates\n\n• 💬 Join conversations in our community channels""",
             inline=True
         )
 
         embed.add_field(
             name="💎 **VIP Benefits**",
-            value="""• 🎯 Premium gold signals with high accuracy
-• 📊 Advanced market analysis & insights
-• 🤖 Multi-account MT5 integration""",
+            value="""• 🎯 Premium gold signals with high accuracy\n\n• 📊 Advanced market analysis & insights\n\n• 🏆 Exclusive VIP community access""",
             inline=True
         )
 
         embed.add_field(
             name="🆓 **Free Access**",
-            value="""• Daily signals and market analysis
-• Educational content & trading tips
-• Active community discussions""",
+            value="""• Daily signals and market analysis\n\n• Educational content & trading tips\n\n• Active community discussions""",
             inline=True
         )
 
         embed.add_field(
-            name="🤖 **Discord Bot Features**",
-            value="""• `/mt5-stats` - View your trading performance
-• `/mt5-accounts` - Manage multiple accounts
-• `/mt5-leaderboard` - Community rankings
-• Contact staff to link your MT5 account!""",
+            name="🚀 **Upcoming Features (Beta Testing)**",
+            value="""• 🤖 Advanced Discord bot integration\n\n• 📈 Real-time performance tracking\n\n• 🏅 Community leaderboards\n\n• 📱 MT5 account management tools\n\n*These exciting features are coming soon!*""",
             inline=False
         )
 
         embed.add_field(
             name="✨ **Ready to Get Started?**",
-            value="**Read the rules, explore our channels, and start your path to prosperity! 📊✨**",
+            value="**Read the rules, explore our channels, and start your path to prosperity! 📊✨**\n\n━━━━━━━━━━━━━━━━━━━━━━━━",
             inline=False
         )
 
@@ -109,8 +100,8 @@ class EmbedManagement(commands.Cog):
         
         # Main rules header
         embed1 = discord.Embed(
-            title="📋 Path to Prosperity — Server Rules",
-            description="*Building wealth through disciplined trading and respectful community*\n\n**Please read and follow all rules to maintain our professional trading environment** 📈",
+            title="📋 PipVault — Server Rules",
+            description="*Your Path to Prosperity*\n\n*Building wealth through disciplined trading and respectful community*\n\n**Please read and follow all rules to maintain our professional trading environment** 📈",
             color=0xff0000
         )
 
@@ -244,14 +235,14 @@ class EmbedManagement(commands.Cog):
 
 📊 XAUUSD: SELL
 💰 Position Size: 5% risk
-🚀 Entry: 3665.0 - 3670.0
-🚫 SL: 3675.0
+🚀 Entry: 2650.0 - 2652.0
+🚫 SL: 2655.0
 
-🎯 TP1: 3660.0
-🎯 TP2: 3655.0
-🎯 TP3: 3650.0
-🎯 TP4: 3645.0
-🎯 TP5: 3640.0
+🎯 TP1: 2648.0
+🎯 TP2: 2646.0
+🎯 TP3: 2644.0
+🎯 TP4: 2642.0
+🎯 TP5: 2640.0
 ```""",
             inline=False
         )
@@ -264,17 +255,17 @@ class EmbedManagement(commands.Cog):
 
         # Trading methods embed
         embed2 = discord.Embed(
-            title="📌 Trading Methods & Strategies",
+            title="Trading Methods & Strategies",
             color=0x0099ff
         )
 
         embed2.add_field(
-            name="**📌 MAIN METHOD — LAYER & MANAGE**",
-            value="""• 📍 **Layer your entries** across the zone — e.g. LIMIT SELL at 2650, 2651, and 2652.
+            name="**MAIN METHOD — LAYER & MANAGE**",
+            value="""• 📍 **Layer your entries** across the zone — e.g. LIMIT SELL at 2650.0, 2651.0, and 2652.0 (referencing our example signal above).
 • ⚖️ **Use equal position sizes** at each layer, or place the largest size in the middle of the zone.
 • 🛑 **IMPORTANT:** Set your Stop Loss (SL) on all limits as soon as you place them.
-• ✅ **Close 50% of your position** at TP1.
-• 📊 **Take more partials** at each next TP.
+• ✅ **Close 50% of your position** at TP1 (2648.0).
+• 📊 **Take more partials** at each next TP (2646.0, 2644.0, etc.).
 • 📈 **Trail your SL** as price moves in your favour.
 
 💡 This approach aims to capture the full move from start to finish — banking profits along the way while leaving a portion of your trade to ride big trends.""",
@@ -283,17 +274,17 @@ class EmbedManagement(commands.Cog):
 
         # Alternative method embed
         embed3 = discord.Embed(
-            title="📈 Alternative Trading Strategy",
+            title="Alternative Trading Strategy",
             color=0x0099ff
         )
 
         embed3.add_field(
-            name="**📌 ALTERNATIVE METHOD — STEP-UP STOP LOSS**",
-            value="""• ⏳ **Wait until price bounces** from your entry zone or TP1 is hit.
+            name="**ALTERNATIVE METHOD — STEP-UP STOP LOSS**",
+            value="""• ⏳ **Wait until price bounces** from your entry zone (2650.0-2652.0) or TP1 is hit (2648.0).
 • 🔒 **Move SL to BE** (Break Even) on all entries at this stage.
-• 📈 **When TP2 is hit,** move SL to TP1.
-• 📈 **When TP3 is hit,** move SL to TP2, and so on.
-• 🪙 **Keep small runners** for any open targets.
+• 📈 **When TP2 is hit** (2646.0), move SL to TP1 (2648.0).
+• 📈 **When TP3 is hit** (2644.0), move SL to TP2 (2646.0), and so on.
+• 🪙 **Keep small runners** for any remaining targets.
 
 💡 This method focuses on capital protection first — locking in safety as the trade progresses while still leaving the door open for profit from runners.""",
             inline=False
