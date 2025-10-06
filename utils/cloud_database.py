@@ -106,9 +106,13 @@ class CloudAPIServerDatabase:
             return {}
     
     def update_staff_invite_code(self, discord_id: int, invite_code: str) -> bool:
-        """Update invite code for a staff member in database"""
+        """
+        Update invite code for a staff member using clean architecture:
+        - Only stores dynamic data (invite_code) in database
+        - Static data comes from config file
+        """
         try:
-            # Get staff info from config
+            # Verify staff exists in config first
             config = self.load_staff_config()
             staff_info = None
             
@@ -121,22 +125,20 @@ class CloudAPIServerDatabase:
                 logger.warning(f"Staff member with Discord ID {discord_id} not found in config")
                 return False
             
-            # Store in database
+            # Store only dynamic data in database, set static columns to NULL
             conn = self.get_connection()
             cursor = conn.cursor()
             
             cursor.execute('''
                 INSERT OR REPLACE INTO staff_invites 
                 (staff_id, staff_username, invite_code, vantage_referral_link, vantage_ib_code, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (discord_id, staff_info['username'], invite_code, 
-                  staff_info['vantage_referral_link'], staff_info['vantage_ib_code'], 
-                  datetime.now()))
+                VALUES (?, NULL, ?, NULL, NULL, ?)
+            ''', (discord_id, invite_code, datetime.now()))
             
             conn.commit()
             conn.close()
             
-            logger.info(f"Updated invite code for staff {discord_id}: {invite_code}")
+            logger.info(f"✅ Updated invite code for {staff_info['username']} (Discord ID: {discord_id}) with clean architecture")
             
             # Trigger immediate cloud backup
             self.trigger_backup()
@@ -415,21 +417,69 @@ class CloudAPIServerDatabase:
             logger.error(f"❌ Error restoring from cloud: {e}")
     
     def get_staff_by_discord_id(self, discord_id: int) -> Optional[Dict]:
-        """Get staff member info by Discord ID"""
-        config = self.load_staff_config()
-        for staff_key, staff_info in config["staff_members"].items():
-            if staff_info["discord_id"] == discord_id:
-                return staff_info
-        return None
-
-    def get_staff_config_by_invite(self, invite_code: str) -> Optional[Dict]:
-        """Get staff member info by invite code"""
+        """
+        Get staff member info by Discord ID using clean architecture:
+        - Static data (discord_id, username, vantage_referral_link, vantage_ib_code) from config file
+        - Dynamic data (invite_code) from database
+        """
         try:
+            # First get static data from config file
+            config = self.load_staff_config()
+            staff_static_data = None
+            
+            for staff_key, staff_info in config["staff_members"].items():
+                if staff_info["discord_id"] == discord_id:
+                    staff_static_data = {
+                        'discord_id': staff_info["discord_id"],
+                        'username': staff_info["username"],
+                        'vantage_referral_link': staff_info["vantage_referral_link"],
+                        'vantage_ib_code': staff_info["vantage_ib_code"]
+                    }
+                    break
+            
+            if not staff_static_data:
+                return None  # Staff member not found in config
+            
+            # Now get dynamic data (invite_code) from database
             conn = sqlite3.connect(self.db_path, timeout=10.0)
             cursor = conn.cursor()
             
             cursor.execute('''
-                SELECT staff_id, staff_username, vantage_referral_link, vantage_ib_code
+                SELECT invite_code
+                FROM staff_invites 
+                WHERE staff_id = ?
+            ''', (discord_id,))
+            
+            result = cursor.fetchone()
+            conn.close()
+            
+            # Combine static and dynamic data
+            combined_data = staff_static_data.copy()
+            if result:
+                combined_data['invite_code'] = result[0]
+            else:
+                combined_data['invite_code'] = None  # No invite code generated yet
+                
+            return combined_data
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting staff by Discord ID {discord_id}: {e}")
+            return None
+
+    def get_staff_config_by_invite(self, invite_code: str) -> Optional[Dict]:
+        """
+        Get staff member info by invite code using clean architecture:
+        - Get Discord ID from database using invite code
+        - Get static data from config file using Discord ID
+        - Combine with invite code
+        """
+        try:
+            # First get Discord ID from database using invite code
+            conn = sqlite3.connect(self.db_path, timeout=10.0)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                SELECT staff_id
                 FROM staff_invites 
                 WHERE invite_code = ?
             ''', (invite_code,))
@@ -437,39 +487,69 @@ class CloudAPIServerDatabase:
             row = cursor.fetchone()
             conn.close()
             
-            if row:
-                return {
-                    'discord_id': row[0],
-                    'username': row[1],
-                    'vantage_referral_link': row[2],
-                    'vantage_ib_code': row[3]
-                }
+            if not row:
+                return None  # Invite code not found
+                
+            discord_id = row[0]
+            
+            # Now get static data from config file
+            config = self.load_staff_config()
+            for staff_key, staff_info in config["staff_members"].items():
+                if staff_info["discord_id"] == discord_id:
+                    return {
+                        'discord_id': staff_info["discord_id"],
+                        'username': staff_info["username"],
+                        'vantage_referral_link': staff_info["vantage_referral_link"],
+                        'vantage_ib_code': staff_info["vantage_ib_code"],
+                        'invite_code': invite_code
+                    }
+            
+            # If we reach here, invite code exists in DB but Discord ID not in config
+            logger.warning(f"⚠️ Invite code {invite_code} found in DB but Discord ID {discord_id} not in config")
             return None
             
         except Exception as e:
             logger.error(f"❌ Error getting staff config by invite: {e}")
             return None
 
-    def add_staff_invite_config(self, staff_id: int, staff_username: str, 
-                               invite_code: str, vantage_referral_link: str,
-                               vantage_ib_code: str, email_template: str) -> bool:
-        """Add or update staff invite configuration"""
+    def add_staff_invite_config(self, staff_id: int, invite_code: str, email_template: str) -> bool:
+        """
+        Add or update staff invite configuration using clean architecture:
+        - Only stores dynamic data (invite_code, email_template) in database
+        - Static data (username, vantage links) comes from config file
+        - Sets redundant columns to NULL for clean separation
+        """
         try:
+            # Verify staff exists in config first
+            config = self.load_staff_config()
+            staff_exists = False
+            staff_username = None
+            
+            for staff_key, staff_info in config["staff_members"].items():
+                if staff_info["discord_id"] == staff_id:
+                    staff_exists = True
+                    staff_username = staff_info["username"]
+                    break
+            
+            if not staff_exists:
+                logger.error(f"❌ Staff member with Discord ID {staff_id} not found in config file")
+                return False
+            
             conn = sqlite3.connect(self.db_path, timeout=10.0)
             cursor = conn.cursor()
             
+            # Store only dynamic data, set static data columns to NULL for clean architecture
             cursor.execute('''
                 INSERT OR REPLACE INTO staff_invites 
                 (staff_id, staff_username, invite_code, vantage_referral_link, 
                  vantage_ib_code, email_template, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (staff_id, staff_username, invite_code, vantage_referral_link,
-                  vantage_ib_code, email_template, datetime.now()))
+                VALUES (?, NULL, ?, NULL, NULL, ?, ?)
+            ''', (staff_id, invite_code, email_template, datetime.now()))
             
             conn.commit()
             conn.close()
             
-            logger.info(f"✅ Updated staff invite config for {staff_username}")
+            logger.info(f"✅ Updated invite code for {staff_username} (Discord ID: {staff_id}) with clean architecture")
             
             # Trigger immediate cloud backup
             self.trigger_backup()
