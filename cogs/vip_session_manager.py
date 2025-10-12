@@ -144,24 +144,17 @@ class VIPSessionManager(commands.Cog):
             embed = discord.Embed(
                 title="🎯 VIP Chat Session Started",
                 description=f"Welcome {interaction.user.mention}! Your private VIP chat session is now active.",
-                color=discord.Color.gold(),
-                timestamp=datetime.now()
+                color=discord.Color.gold()
             )
             
             embed.add_field(
-                name="📱 How It Works",
+                name="� Getting Started",
                 value=(
-                    "• Messages you send here will be forwarded to our VA on Telegram\n"
-                    "• VA replies will appear in this thread\n"
+                    "• Send a message in this chat to begin your VIP upgrade consultation\n"
+                    "• Our staff team will respond to you shortly\n"
                     "• This session will remain active for 24 hours\n"
                     "• Type `!end` to complete your session early"
                 ),
-                inline=False
-            )
-            
-            embed.add_field(
-                name="🔄 Connection Status",
-                value=f"✅ Connected via account: `{telegram_account.phone[-4:]}`",
                 inline=False
             )
             
@@ -179,16 +172,15 @@ class VIPSessionManager(commands.Cog):
             # Respond with message in vip-upgrade channel (ephemeral to user only)
             embed_response = discord.Embed(
                 title="🎯 VIP Upgrade Session Started",
-                description=f"Your private VIP chat thread has been created!\n\n**Thread:** {thread.mention}\n\nClick the link above to access your private chat with our VAs.",
-                color=discord.Color.gold(),
-                timestamp=datetime.now()
+                description=f"Your private VIP chat thread has been created!\n\n**Thread:** {thread.mention}\n\nClick the link above to access your private chat with our staff team.",
+                color=discord.Color.gold()
             )
             
             embed_response.add_field(
                 name="💬 How to Use",
                 value=(
                     "• Click the thread link above to enter your chat\n"
-                    "• Messages you send will be forwarded to our VA team\n"
+                    "• Messages you send will be handled by our staff team\n"
                     "• Get personalized VIP upgrade assistance\n"
                     "• Session active for 24 hours"
                 ),
