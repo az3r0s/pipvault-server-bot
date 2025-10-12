@@ -361,6 +361,47 @@ class VIPUpgradeView(discord.ui.View):
         emoji="👑"
     )
     async def upgrade_to_vip(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Handle VIP upgrade button click - directly create VIP chat thread"""
+        try:
+            # Check if user already has VIP role
+            vip_cog = interaction.client.get_cog('VIPUpgrade')
+            if vip_cog and vip_cog.VIP_ROLE_ID:
+                vip_role_id = int(vip_cog.VIP_ROLE_ID)
+                if interaction.guild:
+                    vip_role = interaction.guild.get_role(vip_role_id)
+                    if vip_role and isinstance(interaction.user, discord.Member) and vip_role in interaction.user.roles:
+                        embed = discord.Embed(
+                            title="👑 Already VIP!",
+                            description="You already have VIP access! This channel is for new members upgrading to VIP.",
+                            color=discord.Color.gold()
+                        )
+                        await interaction.response.send_message(embed=embed, ephemeral=True)
+                        return
+            
+            # Get VIP session manager and create chat session directly
+            session_manager = interaction.client.get_cog('VIPSessionManager')
+            if not session_manager:
+                await interaction.response.send_message(
+                    "❌ VIP chat system is currently unavailable. Please try again later.",
+                    ephemeral=True
+                )
+                return
+            
+            # Create VIP chat session (this handles the interaction response)
+            success = await session_manager.create_vip_session(interaction)
+            # Note: create_vip_session handles the interaction response internally
+            
+        except Exception as e:
+            logger.error(f"❌ Error in VIP upgrade: {e}")
+            if not interaction.response.is_done():
+                await interaction.response.send_message(
+                    "❌ Failed to create VIP upgrade session. Please try again or contact support.",
+                    ephemeral=True
+                )
+    
+
+
+    async def upgrade_to_vip_original(self, interaction: discord.Interaction, button: discord.ui.Button):
         """Handle initial VIP upgrade button click"""
         try:
             # Load staff config to check if user is staff
@@ -461,7 +502,8 @@ class VIPUpgradeView(discord.ui.View):
             
         except Exception as e:
             logger.error(f"❌ Error in VIP upgrade start: {e}")
-            await interaction.response.send_message("❌ An error occurred. Please try again.", ephemeral=True)
+            if not interaction.response.is_done():
+                await interaction.response.send_message("❌ An error occurred. Please try again.", ephemeral=True)
 
 class VantageAccountView(discord.ui.View):
     """View for existing Vantage account question"""

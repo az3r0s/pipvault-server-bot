@@ -83,11 +83,29 @@ class ZinraiServerBot(commands.Bot):
         """Setup hook called when bot is starting"""
         logger.info("🚀 Setting up Zinrai Server Bot...")
         
+        # Initialize Telegram manager
+        try:
+            from src.telegram import initialize_telegram_manager
+            
+            # Initialize the manager if credentials are available
+            api_id = os.getenv('TELEGRAM_API_ID')
+            api_hash = os.getenv('TELEGRAM_API_HASH')
+            
+            if api_id and api_hash:
+                await initialize_telegram_manager()
+                logger.info("✅ Telegram manager initialized")
+            else:
+                logger.warning("⚠️ Telegram credentials not found - VIP chat system will be limited")
+                
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize Telegram manager: {e}")
+        
         # Load cogs
         cogs_to_load = [
             'cogs.vip_upgrade',
             'cogs.invite_tracker',
             'cogs.embed_management',
+            'cogs.vip_session_manager',
         ]
         
         for cog in cogs_to_load:
