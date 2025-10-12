@@ -245,12 +245,15 @@ class VIPSessionManager(commands.Cog):
             await self._end_session(message.channel, user_id)
             return
         
-        # Forward message to Telegram
+        # Forward message to Telegram - send as natural conversation
         if telegram_manager:
+            # Format as natural message (VA sees this as coming from the dummy account)
+            natural_message = f"{message.content}"
+            
             success = await telegram_manager.send_message(
                 user_id, 
                 self.TELEGRAM_VA_USERNAME, 
-                f"**{message.author.display_name}**: {message.content}"
+                natural_message
             )
             
             if success:

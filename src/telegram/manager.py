@@ -247,7 +247,7 @@ class TelegramAccountManager:
         return True
     
     async def send_message(self, discord_user_id: str, va_username: str, message: str) -> bool:
-        """Send message from user to VA via assigned dummy account"""
+        """Send message from dummy account to VA - appears as natural Telegram conversation"""
         if discord_user_id not in self.active_sessions:
             logger.error(f"❌ No active session for Discord user {discord_user_id}")
             return False
@@ -255,14 +255,16 @@ class TelegramAccountManager:
         account = self.active_sessions[discord_user_id]
         
         try:
-            # Find VA user
+            # Find VA user  
             va_user = await account.client.get_entity(va_username)
             
-            # Send message
+            # Send message FROM the dummy account TO the VA
+            # This creates a natural conversation that the VA sees as:
+            # "Dummy Account Name: [customer's message]"
             await account.client.send_message(va_user, message)
             
             account.last_activity = datetime.now()
-            logger.info(f"📤 Sent message from user {discord_user_id} to VA {va_username}")
+            logger.info(f"📤 Sent message from dummy account {account.phone} to VA {va_username}: {message[:50]}...")
             return True
             
         except Exception as e:
