@@ -25,10 +25,14 @@ import asyncio
 
 sys.path.append(str(Path(__file__).parent.parent))
 
-try:
-    from src.telegram import telegram_manager
-except ImportError:
-    telegram_manager = None
+# We'll get telegram_manager dynamically to avoid import issues
+def get_telegram_manager():
+    """Get the global telegram manager instance"""
+    try:
+        from src.telegram import telegram_manager
+        return telegram_manager
+    except ImportError:
+        return None
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +58,7 @@ class VIPSessionManager(commands.Cog):
         logger.info("💬 VIP Session Manager loaded")
         
         # Set up Telegram callback for VA replies
+        telegram_manager = get_telegram_manager()
         if telegram_manager:
             telegram_manager.set_discord_callback(self.handle_va_reply)
     
@@ -84,6 +89,7 @@ class VIPSessionManager(commands.Cog):
                 return False
             
             # Get available Telegram account
+            telegram_manager = get_telegram_manager()
             if not telegram_manager:
                 await interaction.response.send_message(
                     "❌ VIP chat system is currently unavailable. Please try again later.",

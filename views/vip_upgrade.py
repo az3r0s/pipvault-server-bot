@@ -355,7 +355,7 @@ class VIPUpgradeView(discord.ui.View):
         super().__init__(timeout=None)  # Persistent view
     
     @discord.ui.button(
-        label="👑 Upgrade to VIP",
+        label="Upgrade to VIP",
         style=discord.ButtonStyle.primary,
         custom_id="vip_upgrade_start",
         emoji="👑"
@@ -378,11 +378,27 @@ class VIPUpgradeView(discord.ui.View):
                         await interaction.response.send_message(embed=embed, ephemeral=True)
                         return
             
+            # Check if Telegram manager is available first
+            try:
+                from src.telegram import telegram_manager
+                if not telegram_manager:
+                    await interaction.response.send_message(
+                        "❌ VIP chat system is currently unavailable. Please try again later.",
+                        ephemeral=True
+                    )
+                    return
+            except ImportError:
+                await interaction.response.send_message(
+                    "❌ VIP chat system is currently unavailable. Please try again later.",
+                    ephemeral=True
+                )
+                return
+            
             # Get VIP session manager and create chat session directly
             session_manager = interaction.client.get_cog('VIPSessionManager')
             if not session_manager:
                 await interaction.response.send_message(
-                    "❌ VIP chat system is currently unavailable. Please try again later.",
+                    "❌ VIP session manager is not loaded. Please try again later.",
                     ephemeral=True
                 )
                 return
