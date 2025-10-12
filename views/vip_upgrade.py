@@ -380,7 +380,8 @@ class VIPUpgradeView(discord.ui.View):
             
             # Check if Telegram manager is available first
             try:
-                from src.telegram import telegram_manager
+                import src.telegram.manager as telegram_module
+                telegram_manager = telegram_module.telegram_manager
                 print(f"🔍 DEBUG: telegram_manager = {telegram_manager}")
                 print(f"🔍 DEBUG: telegram_manager type = {type(telegram_manager)}")
                 if telegram_manager is None:

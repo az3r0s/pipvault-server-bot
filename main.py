@@ -85,21 +85,20 @@ class ZinraiServerBot(commands.Bot):
         
         # Initialize Telegram manager
         try:
-            from src.telegram import initialize_telegram_manager
+            import src.telegram.manager as telegram_module
             
             # Initialize the manager if credentials are available
             api_id = os.getenv('TELEGRAM_API_ID')
             api_hash = os.getenv('TELEGRAM_API_HASH')
             
             if api_id and api_hash:
-                manager = await initialize_telegram_manager()
+                manager = await telegram_module.initialize_telegram_manager()
                 print(f"🔍 DEBUG main.py: initialize_telegram_manager returned: {manager}")
                 print(f"🔍 DEBUG main.py: manager type: {type(manager)}")
                 
-                # Verify the global manager is set
-                from src.telegram import telegram_manager
-                print(f"🔍 DEBUG main.py: global telegram_manager after init: {telegram_manager}")
-                print(f"🔍 DEBUG main.py: global telegram_manager type: {type(telegram_manager)}")
+                # Verify the global manager is set directly from the module
+                print(f"🔍 DEBUG main.py: telegram_module.telegram_manager after init: {telegram_module.telegram_manager}")
+                print(f"🔍 DEBUG main.py: telegram_module.telegram_manager type: {type(telegram_module.telegram_manager)}")
                 
                 logger.info("✅ Telegram manager initialized")
             else:

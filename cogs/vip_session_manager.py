@@ -1,6 +1,6 @@
 """
-VIP Session Management Cog
-==========================
+VIP Session Management
+=====================
 
 Handles VIP chat sessions including:
 - Thread creation and management
@@ -29,10 +29,10 @@ sys.path.append(str(Path(__file__).parent.parent))
 def get_telegram_manager():
     """Get the global telegram manager instance"""
     try:
-        from src.telegram import telegram_manager
-        print(f"🔍 DEBUG get_telegram_manager: Successfully imported, telegram_manager = {telegram_manager}")
-        print(f"🔍 DEBUG get_telegram_manager: Type = {type(telegram_manager)}")
-        return telegram_manager
+        import src.telegram.manager as telegram_module
+        print(f"🔍 DEBUG get_telegram_manager: Successfully imported, telegram_manager = {telegram_module.telegram_manager}")
+        print(f"🔍 DEBUG get_telegram_manager: Type = {type(telegram_module.telegram_manager)}")
+        return telegram_module.telegram_manager
     except ImportError as e:
         print(f"🔍 DEBUG get_telegram_manager: ImportError = {e}")
         return None
