@@ -381,15 +381,23 @@ class VIPUpgradeView(discord.ui.View):
             # Check if Telegram manager is available first
             try:
                 from src.telegram import telegram_manager
+                print(f"🔍 DEBUG: telegram_manager = {telegram_manager}")
+                print(f"🔍 DEBUG: telegram_manager type = {type(telegram_manager)}")
+                if telegram_manager is None:
+                    print("🔍 DEBUG: telegram_manager is None")
                 if not telegram_manager:
+                    print(f"🔍 DEBUG: telegram_manager failed boolean check: {telegram_manager}")
                     await interaction.response.send_message(
-                        "❌ VIP chat system is currently unavailable. Please try again later.",
+                        "❌ VIP chat system is currently unavailable (telegram_manager not available). Please try again later.",
                         ephemeral=True
                     )
                     return
-            except ImportError:
+                else:
+                    print(f"🔍 DEBUG: telegram_manager is available: {telegram_manager}")
+            except ImportError as e:
+                print(f"🔍 DEBUG: ImportError when importing telegram_manager: {e}")
                 await interaction.response.send_message(
-                    "❌ VIP chat system is currently unavailable. Please try again later.",
+                    "❌ VIP chat system is currently unavailable (import error). Please try again later.",
                     ephemeral=True
                 )
                 return

@@ -30,8 +30,11 @@ def get_telegram_manager():
     """Get the global telegram manager instance"""
     try:
         from src.telegram import telegram_manager
+        print(f"🔍 DEBUG get_telegram_manager: Successfully imported, telegram_manager = {telegram_manager}")
+        print(f"🔍 DEBUG get_telegram_manager: Type = {type(telegram_manager)}")
         return telegram_manager
-    except ImportError:
+    except ImportError as e:
+        print(f"🔍 DEBUG get_telegram_manager: ImportError = {e}")
         return None
 
 logger = logging.getLogger(__name__)
@@ -90,12 +93,19 @@ class VIPSessionManager(commands.Cog):
             
             # Get available Telegram account
             telegram_manager = get_telegram_manager()
+            print(f"🔍 DEBUG VIPSessionManager: telegram_manager = {telegram_manager}")
+            print(f"🔍 DEBUG VIPSessionManager: telegram_manager type = {type(telegram_manager)}")
+            if telegram_manager is None:
+                print("🔍 DEBUG VIPSessionManager: telegram_manager is None")
             if not telegram_manager:
+                print(f"🔍 DEBUG VIPSessionManager: telegram_manager failed boolean check")
                 await interaction.response.send_message(
-                    "❌ VIP chat system is currently unavailable. Please try again later.",
+                    "❌ VIP chat system is currently unavailable (session manager - no telegram_manager). Please try again later.",
                     ephemeral=True
                 )
                 return False
+            else:
+                print(f"🔍 DEBUG VIPSessionManager: telegram_manager is available, proceeding")
             
             telegram_account = await telegram_manager.assign_account(user_id)
             if not telegram_account:

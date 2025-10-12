@@ -67,8 +67,7 @@ class VIPUpgrade(commands.Cog):
                     "Welcome to the VIP upgrade system! Upgrade your account to unlock "
                     "premium trading signals, exclusive analysis, and VIP-only benefits."
                 ),
-                color=discord.Color.gold(),
-                timestamp=datetime.now()
+                color=discord.Color.gold()
             )
             
             embed.add_field(

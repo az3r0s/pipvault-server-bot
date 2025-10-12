@@ -92,9 +92,18 @@ class ZinraiServerBot(commands.Bot):
             api_hash = os.getenv('TELEGRAM_API_HASH')
             
             if api_id and api_hash:
-                await initialize_telegram_manager()
+                manager = await initialize_telegram_manager()
+                print(f"🔍 DEBUG main.py: initialize_telegram_manager returned: {manager}")
+                print(f"🔍 DEBUG main.py: manager type: {type(manager)}")
+                
+                # Verify the global manager is set
+                from src.telegram import telegram_manager
+                print(f"🔍 DEBUG main.py: global telegram_manager after init: {telegram_manager}")
+                print(f"🔍 DEBUG main.py: global telegram_manager type: {type(telegram_manager)}")
+                
                 logger.info("✅ Telegram manager initialized")
             else:
+                print(f"🔍 DEBUG main.py: Missing credentials - api_id={api_id}, api_hash={'***' if api_hash else None}")
                 logger.warning("⚠️ Telegram credentials not found - VIP chat system will be limited")
                 
         except Exception as e:
