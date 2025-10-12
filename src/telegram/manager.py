@@ -38,10 +38,11 @@ logger = logging.getLogger(__name__)
 class TelegramAccount:
     """Represents a single dummy Telegram account"""
     
-    def __init__(self, phone: str, session_name: str, active: bool = True):
+    def __init__(self, phone: str, session_name: str, active: bool = True, session_string: Optional[str] = None):
         self.phone = phone
         self.session_name = session_name
         self.active = active
+        self.session_string = session_string  # StringSession for Railway compatibility
         self.client: Optional[TelegramClient] = None
         self.current_user_id: Optional[str] = None
         self.session_started_at: Optional[datetime] = None
@@ -73,10 +74,12 @@ class TelegramAccountManager:
         # Configuration
         self.max_concurrent_sessions = int(os.getenv('MAX_CONCURRENT_SESSIONS', '10'))
         self.session_timeout_hours = int(os.getenv('VIP_SESSION_TIMEOUT_HOURS', '24'))
+        self.va_username = os.getenv('TELEGRAM_VA_USERNAME', '')
         
         logger.info(f"🔐 Telegram Account Manager initialized")
         logger.info(f"📂 Session directory: {self.session_dir}")
         logger.info(f"⚡ Max concurrent sessions: {self.max_concurrent_sessions}")
+        logger.info(f"👤 VA Username: @{self.va_username}" if self.va_username else "⚠️ VA Username not configured")
     
     def _get_or_create_encryption_key(self) -> bytes:
         """Get or create encryption key for session files"""
@@ -94,7 +97,48 @@ class TelegramAccountManager:
             return key
     
     async def load_accounts_from_config(self) -> None:
-        """Load dummy accounts from environment configuration"""
+        """Load dummy accounts from environment configuration using StringSession approach"""
+        try:
+            account_count = 0
+            
+            # Look for TELEGRAM_ACCOUNT_X_* environment variables
+            for i in range(1, 11):  # Support up to 10 accounts
+                phone_key = f'TELEGRAM_ACCOUNT_{i}_PHONE'
+                session_key = f'TELEGRAM_ACCOUNT_{i}_SESSION'
+                name_key = f'TELEGRAM_ACCOUNT_{i}_NAME'
+                
+                phone = os.getenv(phone_key)
+                session_string = os.getenv(session_key)
+                name = os.getenv(name_key, f'vip_account_{i}')
+                
+                if phone and session_string:
+                    # Create account with session string
+                    account = TelegramAccount(
+                        phone=phone,
+                        session_name=name,
+                        active=True,
+                        session_string=session_string  # Pass directly to constructor
+                    )
+                    
+                    self.accounts.append(account)
+                    account_count += 1
+                    logger.info(f"📱 Loaded account: {phone} ({name}) with StringSession")
+            
+            if account_count == 0:
+                logger.warning("⚠️ No Telegram accounts configured with StringSession format")
+                logger.info("💡 Add environment variables: TELEGRAM_ACCOUNT_1_PHONE, TELEGRAM_ACCOUNT_1_SESSION, TELEGRAM_ACCOUNT_1_NAME")
+                
+                # Fallback to old JSON format for backward compatibility
+                logger.info("🔄 Trying legacy JSON format...")
+                await self._load_legacy_json_format()
+            else:
+                logger.info(f"✅ Loaded {account_count} dummy accounts from StringSession configuration")
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to load accounts from configuration: {e}")
+    
+    async def _load_legacy_json_format(self):
+        """Fallback to legacy JSON format (for backward compatibility)"""
         try:
             accounts_json = os.getenv('TELEGRAM_DUMMY_ACCOUNTS', '[]')
             accounts_config = json.loads(accounts_json)
@@ -106,29 +150,43 @@ class TelegramAccountManager:
                     active=config.get('active', True)
                 )
                 self.accounts.append(account)
-                logger.info(f"📱 Loaded account: {account.phone} ({account.session_name})")
+                logger.info(f"📱 Loaded account (legacy): {account.phone} ({account.session_name})")
             
-            logger.info(f"✅ Loaded {len(self.accounts)} dummy accounts from configuration")
+            if len(self.accounts) > 0:
+                logger.info(f"✅ Loaded {len(self.accounts)} dummy accounts from legacy JSON configuration")
             
         except json.JSONDecodeError as e:
             logger.error(f"❌ Failed to parse TELEGRAM_DUMMY_ACCOUNTS JSON: {e}")
         except Exception as e:
-            logger.error(f"❌ Failed to load accounts from configuration: {e}")
+            logger.error(f"❌ Failed to load legacy accounts: {e}")
     
     async def initialize_account(self, account: TelegramAccount) -> bool:
         """Initialize and authenticate a single Telegram account"""
         try:
-            session_file = self.session_dir / f"{account.session_name}.session"
-            
-            # Create Telegram client
-            client = TelegramClient(
-                str(session_file),
-                self.api_id,
-                self.api_hash,
-                device_model="VIP Chat Bot",
-                system_version="1.0",
-                app_version="1.0"
-            )
+            # Check if account has StringSession
+            if hasattr(account, 'session_string') and account.session_string:
+                # Use StringSession (preferred method for Railway)
+                client = TelegramClient(
+                    StringSession(account.session_string),
+                    self.api_id,
+                    self.api_hash,
+                    device_model="VIP Chat Bot",
+                    system_version="1.0",
+                    app_version="1.0"
+                )
+                logger.info(f"🔗 Using StringSession for account {account.phone}")
+            else:
+                # Fallback to file session (legacy method)
+                session_file = self.session_dir / f"{account.session_name}.session"
+                client = TelegramClient(
+                    str(session_file),
+                    self.api_id,
+                    self.api_hash,
+                    device_model="VIP Chat Bot",
+                    system_version="1.0",
+                    app_version="1.0"
+                )
+                logger.info(f"📁 Using file session for account {account.phone}")
             
             account.client = client
             
@@ -136,9 +194,7 @@ class TelegramAccountManager:
             await client.connect()
             
             if not await client.is_user_authorized():
-                logger.info(f"📱 Account {account.phone} requires authentication")
-                # This would require manual intervention for first-time setup
-                # In production, accounts should be pre-authenticated
+                logger.error(f"❌ Account {account.phone} session is invalid or expired")
                 return False
             
             # Test connection
@@ -149,7 +205,9 @@ class TelegramAccountManager:
             # Set up event handlers for this account
             await self._setup_account_handlers(account)
             
-            logger.info(f"✅ Account {account.phone} ({me.first_name}) initialized successfully")
+            # Safe access to account name
+            account_name = getattr(me, 'first_name', 'Unknown')
+            logger.info(f"✅ Account {account.phone} ({account_name}) initialized successfully")
             return True
             
         except Exception as e:
