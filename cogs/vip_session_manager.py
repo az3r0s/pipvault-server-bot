@@ -210,6 +210,7 @@ class VIPSessionManager(commands.Cog):
             # Cleanup on error
             if user_id in self.active_threads:
                 del self.active_threads[user_id]
+            telegram_manager = get_telegram_manager()
             if telegram_manager:
                 await telegram_manager.release_account(user_id)
             
@@ -252,6 +253,7 @@ class VIPSessionManager(commands.Cog):
             return
         
         # Forward message to Telegram - send as natural conversation
+        telegram_manager = get_telegram_manager()
         if telegram_manager:
             # Format as natural message (VA sees this as coming from the dummy account)
             natural_message = f"{message.content}"
@@ -328,6 +330,7 @@ class VIPSessionManager(commands.Cog):
         """End a VIP chat session"""
         try:
             # Release Telegram account
+            telegram_manager = get_telegram_manager()
             if telegram_manager:
                 await telegram_manager.release_account(user_id)
             
@@ -370,6 +373,7 @@ class VIPSessionManager(commands.Cog):
     async def cleanup_expired_sessions(self):
         """Clean up expired VIP sessions"""
         try:
+            telegram_manager = get_telegram_manager()
             if telegram_manager:
                 await telegram_manager.cleanup_expired_sessions()
             
@@ -410,6 +414,7 @@ class VIPSessionManager(commands.Cog):
     async def vip_status(self, interaction: discord.Interaction):
         """Check status of VIP chat system"""
         try:
+            telegram_manager = get_telegram_manager()
             if not telegram_manager:
                 await interaction.response.send_message("❌ Telegram manager not initialized", ephemeral=True)
                 return
