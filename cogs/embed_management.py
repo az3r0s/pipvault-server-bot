@@ -119,7 +119,7 @@ class EmbedManagement(commands.Cog):
 
 **Welcome to the PipVault family!** 🏆✨
 
-*Where disciplined trading meets prosperity* �""",
+*Where disciplined trading meets prosperity* 🎯""",
             inline=False
         )
 
