@@ -1525,6 +1525,553 @@ class VIPUpgrade(commands.Cog):
         except Exception as e:
             await interaction.followup.send(f"❌ Diagnosis failed: {str(e)}", ephemeral=True)
     
+    @app_commands.command(name="fix_invite_tracking", description="[ADMIN] Fix invite tracking synchronization issues")
+    async def fix_invite_tracking(self, interaction: discord.Interaction):
+        """Fix invite tracking synchronization issues"""
+        if not (isinstance(interaction.user, discord.Member) and interaction.user.guild_permissions.administrator):
+            await interaction.response.send_message("❌ You need administrator permissions to use this command.", ephemeral=True)
+            return
+        
+        await interaction.response.defer(ephemeral=True)
+        
+        try:
+            fixes_applied = []
+            
+            # 1. Get database and Discord invite codes
+            try:
+                db_invites = self.bot.db.get_all_staff_configs()
+                db_codes = {config['staff_id']: config.get('invite_code') for config in db_invites if config.get('invite_code')}
+                
+                guild_invites = await interaction.guild.invites()
+                discord_codes = {}
+                for invite in guild_invites:
+                    if invite.inviter:
+                        discord_codes[invite.code] = {
+                            'inviter_id': invite.inviter.id,
+                            'inviter_name': invite.inviter.display_name,
+                            'uses': invite.uses or 0
+                        }
+            except Exception as e:
+                await interaction.followup.send(f"❌ Failed to fetch invite data: {str(e)}", ephemeral=True)
+                return
+            
+            # 2. Find expired codes in database
+            db_code_set = set(db_codes.values())
+            discord_code_set = set(discord_codes.keys())
+            expired_codes = db_code_set - discord_code_set
+            untracked_codes = discord_code_set - db_code_set
+            
+            # 3. Remove expired codes from database
+            if expired_codes:
+                fixes_applied.append(f"🗑️ **REMOVED EXPIRED CODES ({len(expired_codes)}):**")
+                for staff_id, code in db_codes.items():
+                    if code in expired_codes:
+                        try:
+                            user = self.bot.get_user(staff_id)
+                            username = user.display_name if user else f"User {staff_id}"
+                            
+                            # Clear the expired invite code
+                            self.bot.db.update_staff_invite_code(staff_id, None)
+                            fixes_applied.append(f"  • Removed expired code `{code}` from {username}")
+                        except Exception as e:
+                            fixes_applied.append(f"  • Failed to remove code `{code}`: {str(e)}")
+            
+            # 4. Add untracked Discord invites to database
+            if untracked_codes:
+                fixes_applied.append(f"\n➕ **ADDED UNTRACKED CODES ({len(untracked_codes)}):**")
+                for code in untracked_codes:
+                    try:
+                        invite_info = discord_codes[code]
+                        inviter_id = invite_info['inviter_id']
+                        inviter_name = invite_info['inviter_name']
+                        
+                        # Check if this user needs a code assigned
+                        staff_config = self.bot.db.get_staff_by_discord_id(inviter_id)
+                        if staff_config and not staff_config.get('invite_code'):
+                            # Assign this code to the staff member
+                            self.bot.db.update_staff_invite_code(inviter_id, code)
+                            fixes_applied.append(f"  • Assigned code `{code}` to {inviter_name}")
+                        else:
+                            # Just record the invite exists
+                            fixes_applied.append(f"  • Found code `{code}` by {inviter_name} (already tracked or not staff)")
+                    except Exception as e:
+                        fixes_applied.append(f"  • Failed to process code `{code}`: {str(e)}")
+            
+            # 5. Update mismatched codes (like CZ89XauEx -> jCZ89XauEx for Fin)
+            fixes_applied.append(f"\n🔄 **UPDATED MISMATCHED CODES:**")
+            mismatched_found = False
+            
+            for staff_id, db_code in db_codes.items():
+                if db_code and db_code in expired_codes:
+                    # Look for a similar code in Discord
+                    user = self.bot.get_user(staff_id)
+                    username = user.display_name if user else f"User {staff_id}"
+                    
+                    # Find if there's a Discord invite by the same user
+                    matching_discord_code = None
+                    for discord_code, info in discord_codes.items():
+                        if info['inviter_id'] == staff_id:
+                            matching_discord_code = discord_code
+                            break
+                    
+                    if matching_discord_code:
+                        try:
+                            self.bot.db.update_staff_invite_code(staff_id, matching_discord_code)
+                            fixes_applied.append(f"  • Updated {username}: `{db_code}` → `{matching_discord_code}`")
+                            mismatched_found = True
+                        except Exception as e:
+                            fixes_applied.append(f"  • Failed to update {username}: {str(e)}")
+            
+            if not mismatched_found:
+                fixes_applied.append("  • No mismatched codes found")
+            
+            # 6. Verify invite statistics tracking
+            fixes_applied.append(f"\n📊 **INVITE STATISTICS VERIFICATION:**")
+            try:
+                # Check if we have any recorded invite statistics
+                all_configs = self.bot.db.get_all_staff_configs()
+                staff_with_stats = 0
+                total_recorded_invites = 0
+                
+                for config in all_configs:
+                    try:
+                        stats = self.bot.db.get_staff_vip_stats(config['staff_id'])
+                        if stats and stats.get('total_invites', 0) > 0:
+                            staff_with_stats += 1
+                            total_recorded_invites += stats['total_invites']
+                    except:
+                        pass
+                
+                fixes_applied.append(f"  • Staff with recorded invites: {staff_with_stats}/{len(all_configs)}")
+                fixes_applied.append(f"  • Total recorded invites: {total_recorded_invites}")
+                
+                if total_recorded_invites == 0:
+                    fixes_applied.append("  • ⚠️ No invite statistics found - check member join event handler")
+                
+            except Exception as e:
+                fixes_applied.append(f"  • Error checking statistics: {str(e)}")
+            
+            # 7. Summary
+            fixes_applied.append(f"\n✅ **FIX SUMMARY:**")
+            fixes_applied.append(f"  • Removed {len(expired_codes)} expired codes")
+            fixes_applied.append(f"  • Processed {len(untracked_codes)} untracked codes")
+            fixes_applied.append(f"  • Updated database synchronization")
+            fixes_applied.append(f"  • Verified invite tracking system")
+            
+            # Send results
+            fixes_text = "\n".join(fixes_applied)
+            
+            # Split into multiple embeds if too long
+            if len(fixes_text) > 4000:
+                chunks = []
+                current_chunk = []
+                current_length = 0
+                
+                for line in fixes_applied:
+                    if current_length + len(line) > 3900:
+                        chunks.append("\n".join(current_chunk))
+                        current_chunk = [line]
+                        current_length = len(line)
+                    else:
+                        current_chunk.append(line)
+                        current_length += len(line) + 1
+                
+                if current_chunk:
+                    chunks.append("\n".join(current_chunk))
+                
+                # Send first chunk as response
+                embed = discord.Embed(
+                    title="🔧 Invite Tracking Fix Results (1/1)" if len(chunks) == 1 else f"🔧 Invite Tracking Fix Results (1/{len(chunks)})",
+                    description=chunks[0],
+                    color=discord.Color.green()
+                )
+                
+                await interaction.followup.send(embed=embed, ephemeral=True)
+                
+                # Send additional chunks
+                for i, chunk in enumerate(chunks[1:], 2):
+                    embed = discord.Embed(
+                        title=f"🔧 Invite Tracking Fix Results ({i}/{len(chunks)})",
+                        description=chunk,
+                        color=discord.Color.green()
+                    )
+                    await interaction.followup.send(embed=embed, ephemeral=True)
+            else:
+                embed = discord.Embed(
+                    title="🔧 Invite Tracking Fix Results",
+                    description=fixes_text,
+                    color=discord.Color.green()
+                )
+                
+                await interaction.followup.send(embed=embed, ephemeral=True)
+            
+            # Suggest running diagnosis again
+            embed = discord.Embed(
+                title="🔍 Next Steps",
+                description="Run `/diagnose_invites` again to verify all issues have been resolved.",
+                color=discord.Color.blue()
+            )
+            
+            await interaction.followup.send(embed=embed, ephemeral=True)
+                
+        except Exception as e:
+            await interaction.followup.send(f"❌ Fix failed: {str(e)}", ephemeral=True)
+    
+    @app_commands.command(name="regenerate_all_invites", description="[ADMIN] Generate fresh invite codes for all staff members")
+    async def regenerate_all_invites(self, interaction: discord.Interaction):
+        """Generate fresh invite codes for all staff members"""
+        if not (isinstance(interaction.user, discord.Member) and interaction.user.guild_permissions.administrator):
+            await interaction.response.send_message("❌ You need administrator permissions to use this command.", ephemeral=True)
+            return
+        
+        await interaction.response.defer(ephemeral=True)
+        
+        try:
+            results = []
+            staff_configs = self.bot.db.get_all_staff_configs()
+            
+            if not staff_configs:
+                await interaction.followup.send("❌ No staff configurations found in database.", ephemeral=True)
+                return
+            
+            results.append(f"🔄 **REGENERATING INVITES FOR {len(staff_configs)} STAFF MEMBERS**\n")
+            
+            # First, delete all existing invites created by the bot
+            try:
+                if interaction.guild:
+                    guild_invites = await interaction.guild.invites()
+                    bot_invites = [invite for invite in guild_invites if invite.inviter and invite.inviter.id == self.bot.user.id]
+                else:
+                    results.append("❌ Guild not found\n")
+                    await interaction.followup.send("❌ Guild not found", ephemeral=True)
+                    return
+                
+                if bot_invites:
+                    results.append(f"🗑️ **CLEANING UP OLD INVITES ({len(bot_invites)}):**")
+                    for invite in bot_invites:
+                        try:
+                            await invite.delete(reason="Regenerating fresh staff invites")
+                            results.append(f"  • Deleted old invite: `{invite.code}`")
+                        except discord.NotFound:
+                            results.append(f"  • Invite `{invite.code}` already deleted")
+                        except Exception as e:
+                            results.append(f"  • Failed to delete `{invite.code}`: {str(e)}")
+                    results.append("")
+                
+            except Exception as e:
+                results.append(f"⚠️ Warning: Could not clean up old invites: {str(e)}\n")
+            
+            # Generate fresh invites for each staff member
+            results.append("✨ **GENERATING FRESH INVITES:**")
+            successful_invites = []
+            failed_invites = []
+            
+            for config in staff_configs:
+                staff_id = config['staff_id']
+                try:
+                    user = self.bot.get_user(staff_id)
+                    username = user.display_name if user else f"User {staff_id}"
+                    
+                    # Create a fresh permanent invite
+                    if interaction.guild:
+                        invite = await interaction.guild.create_invite(
+                            max_age=0,        # Never expires
+                            max_uses=0,       # Unlimited uses
+                            temporary=False,  # Members stay permanently
+                            unique=True,      # Force create new unique invite
+                            reason=f"Fresh staff invite for {username}"
+                        )
+                    else:
+                        raise Exception("Guild not available")
+                    
+                    # Update database with new invite code
+                    success = self.bot.db.update_staff_invite_code(staff_id, invite.code)
+                    
+                    if success:
+                        successful_invites.append({
+                            'username': username,
+                            'staff_id': staff_id,
+                            'invite_code': invite.code,
+                            'invite_url': f"https://discord.gg/{invite.code}"
+                        })
+                        results.append(f"  ✅ {username}: `{invite.code}` → https://discord.gg/{invite.code}")
+                    else:
+                        failed_invites.append(username)
+                        results.append(f"  ❌ {username}: Created invite but failed to save to database")
+                        
+                except Exception as e:
+                    failed_invites.append(username)
+                    results.append(f"  ❌ {username}: {str(e)}")
+            
+            # Summary
+            results.append(f"\n📊 **GENERATION SUMMARY:**")
+            results.append(f"  • Successfully created: {len(successful_invites)}")
+            results.append(f"  • Failed: {len(failed_invites)}")
+            
+            if successful_invites:
+                results.append(f"\n🔗 **TESTING INVITE LINKS:**")
+                # Test each invite link
+                for invite_data in successful_invites:
+                    try:
+                        # Fetch the invite to verify it exists and get current stats
+                        fetched_invite = await self.bot.fetch_invite(invite_data['invite_code'])
+                        results.append(f"  ✅ {invite_data['username']}: Link works, {fetched_invite.uses or 0} uses")
+                    except discord.NotFound:
+                        results.append(f"  ❌ {invite_data['username']}: Link not found!")
+                    except Exception as e:
+                        results.append(f"  ⚠️ {invite_data['username']}: Test failed: {str(e)}")
+            
+            # Recommendations
+            results.append(f"\n💡 **NEXT STEPS:**")
+            results.append("1. Test invite links manually by clicking them")
+            results.append("2. Run `/list_staff_invites` to verify database updates")
+            results.append("3. Test VIP upgrade flow to ensure invite tracking works")
+            results.append("4. Run `/diagnose_invites` to verify synchronization")
+            
+            # Send results
+            results_text = "\n".join(results)
+            
+            # Split into multiple embeds if too long
+            if len(results_text) > 4000:
+                chunks = []
+                current_chunk = []
+                current_length = 0
+                
+                for line in results:
+                    if current_length + len(line) > 3900:
+                        chunks.append("\n".join(current_chunk))
+                        current_chunk = [line]
+                        current_length = len(line)
+                    else:
+                        current_chunk.append(line)
+                        current_length += len(line) + 1
+                
+                if current_chunk:
+                    chunks.append("\n".join(current_chunk))
+                
+                # Send first chunk as response
+                embed = discord.Embed(
+                    title="🔄 Fresh Invite Generation Results (1/1)" if len(chunks) == 1 else f"🔄 Fresh Invite Generation Results (1/{len(chunks)})",
+                    description=chunks[0],
+                    color=discord.Color.gold()
+                )
+                
+                await interaction.followup.send(embed=embed, ephemeral=True)
+                
+                # Send additional chunks
+                for i, chunk in enumerate(chunks[1:], 2):
+                    embed = discord.Embed(
+                        title=f"🔄 Fresh Invite Generation Results ({i}/{len(chunks)})",
+                        description=chunk,
+                        color=discord.Color.gold()
+                    )
+                    await interaction.followup.send(embed=embed, ephemeral=True)
+            else:
+                embed = discord.Embed(
+                    title="🔄 Fresh Invite Generation Results",
+                    description=results_text,
+                    color=discord.Color.gold()
+                )
+                
+                await interaction.followup.send(embed=embed, ephemeral=True)
+            
+            # Send a summary card with working links for easy testing
+            if successful_invites:
+                test_embed = discord.Embed(
+                    title="🧪 Quick Link Test Card",
+                    description="Click these links to verify they work:",
+                    color=discord.Color.blue()
+                )
+                
+                for invite_data in successful_invites[:10]:  # Limit to first 10 to avoid embed limits
+                    test_embed.add_field(
+                        name=invite_data['username'],
+                        value=f"[Test Link](https://discord.gg/{invite_data['invite_code']})",
+                        inline=True
+                    )
+                
+                if len(successful_invites) > 10:
+                    test_embed.add_field(
+                        name="...",
+                        value=f"And {len(successful_invites) - 10} more",
+                        inline=True
+                    )
+                
+                await interaction.followup.send(embed=test_embed, ephemeral=True)
+                
+        except Exception as e:
+            await interaction.followup.send(f"❌ Invite regeneration failed: {str(e)}", ephemeral=True)
+    
+    @app_commands.command(name="test_invite_flow", description="[ADMIN] Test the complete VIP upgrade invite tracking flow")
+    async def test_invite_flow(self, interaction: discord.Interaction):
+        """Test the complete VIP upgrade invite tracking flow"""
+        if not (isinstance(interaction.user, discord.Member) and interaction.user.guild_permissions.administrator):
+            await interaction.response.send_message("❌ You need administrator permissions to use this command.", ephemeral=True)
+            return
+        
+        await interaction.response.defer(ephemeral=True)
+        
+        try:
+            test_results = []
+            
+            # 1. Check VIP upgrade channel setup
+            test_results.append("🧪 **VIP UPGRADE FLOW TEST**\n")
+            
+            vip_channel = self.bot.get_channel(self.VIP_UPGRADE_CHANNEL_ID)
+            if vip_channel:
+                test_results.append(f"✅ VIP Channel: {vip_channel.mention}")
+            else:
+                test_results.append(f"❌ VIP Channel not found (ID: {self.VIP_UPGRADE_CHANNEL_ID})")
+            
+            # 2. Check staff invite codes
+            test_results.append(f"\n🔗 **STAFF INVITE STATUS:**")
+            staff_configs = self.bot.db.get_all_staff_configs()
+            active_invites = 0
+            
+            for config in staff_configs:
+                staff_id = config['staff_id']
+                invite_code = config.get('invite_code')
+                
+                try:
+                    user = self.bot.get_user(staff_id)
+                    username = user.display_name if user else f"User {staff_id}"
+                    
+                    if invite_code:
+                        try:
+                            # Test if invite is valid
+                            fetched_invite = await self.bot.fetch_invite(invite_code)
+                            uses = fetched_invite.uses or 0
+                            test_results.append(f"  ✅ {username}: `{invite_code}` ({uses} uses)")
+                            active_invites += 1
+                        except discord.NotFound:
+                            test_results.append(f"  ❌ {username}: `{invite_code}` (INVALID)")
+                        except Exception as e:
+                            test_results.append(f"  ⚠️ {username}: `{invite_code}` (Error: {str(e)})")
+                    else:
+                        test_results.append(f"  ❌ {username}: No invite code assigned")
+                        
+                except Exception as e:
+                    test_results.append(f"  ❌ User {staff_id}: Error: {str(e)}")
+            
+            # 3. Test invite tracking system
+            test_results.append(f"\n📊 **INVITE TRACKING SYSTEM:**")
+            test_results.append(f"  • Active staff invites: {active_invites}/{len(staff_configs)}")
+            
+            # Check if invite tracker cog is loaded
+            invite_tracker = self.bot.get_cog('InviteTracker')
+            if invite_tracker:
+                test_results.append(f"  ✅ Invite Tracker cog loaded")
+            else:
+                test_results.append(f"  ❌ Invite Tracker cog not found")
+            
+            # 4. Check VIP role configuration
+            test_results.append(f"\n👑 **VIP ROLE CONFIGURATION:**")
+            if self.VIP_ROLE_ID:
+                vip_role = interaction.guild.get_role(int(self.VIP_ROLE_ID))
+                if vip_role:
+                    test_results.append(f"  ✅ VIP Role: {vip_role.mention} ({len(vip_role.members)} members)")
+                else:
+                    test_results.append(f"  ❌ VIP Role not found (ID: {self.VIP_ROLE_ID})")
+            else:
+                test_results.append(f"  ❌ VIP_ROLE_ID not configured")
+            
+            # 5. Test database functionality
+            test_results.append(f"\n💾 **DATABASE FUNCTIONALITY:**")
+            try:
+                # Test basic database operations
+                test_configs = self.bot.db.get_all_staff_configs()
+                test_results.append(f"  ✅ Database connection working ({len(test_configs)} staff configs)")
+                
+                # Test invite tracking methods
+                try:
+                    staff_status = self.bot.db.get_staff_invite_status()
+                    test_results.append(f"  ✅ Invite status method working")
+                except Exception as e:
+                    test_results.append(f"  ⚠️ Invite status method: {str(e)}")
+                    
+            except Exception as e:
+                test_results.append(f"  ❌ Database error: {str(e)}")
+            
+            # 6. Test member join simulation
+            test_results.append(f"\n🎯 **MEMBER JOIN SIMULATION:**")
+            test_results.append(f"  📝 To test invite tracking:")
+            test_results.append(f"     1. Use one of the staff invite links")
+            test_results.append(f"     2. Join with an alt account")
+            test_results.append(f"     3. Check if the join is tracked with `/list_staff_invites`")
+            test_results.append(f"     4. Verify VIP upgrade button appears")
+            
+            # 7. Summary and recommendations
+            test_results.append(f"\n✅ **TEST SUMMARY:**")
+            issues_found = []
+            
+            if not vip_channel:
+                issues_found.append("VIP channel not found")
+            if active_invites < len(staff_configs):
+                issues_found.append(f"Only {active_invites}/{len(staff_configs)} staff have working invites")
+            if not invite_tracker:
+                issues_found.append("Invite tracker cog not loaded")
+            if not self.VIP_ROLE_ID or not interaction.guild.get_role(int(self.VIP_ROLE_ID)):
+                issues_found.append("VIP role not configured properly")
+            
+            if issues_found:
+                test_results.append(f"  ⚠️ Issues found: {len(issues_found)}")
+                for issue in issues_found:
+                    test_results.append(f"     • {issue}")
+                test_results.append(f"\n  🔧 Run `/regenerate_all_invites` to fix invite issues")
+            else:
+                test_results.append(f"  🎉 All systems appear to be working correctly!")
+                test_results.append(f"  🧪 Ready for live testing with invite links")
+            
+            # Send results
+            results_text = "\n".join(test_results)
+            
+            # Split into multiple embeds if too long
+            if len(results_text) > 4000:
+                chunks = []
+                current_chunk = []
+                current_length = 0
+                
+                for line in test_results:
+                    if current_length + len(line) > 3900:
+                        chunks.append("\n".join(current_chunk))
+                        current_chunk = [line]
+                        current_length = len(line)
+                    else:
+                        current_chunk.append(line)
+                        current_length += len(line) + 1
+                
+                if current_chunk:
+                    chunks.append("\n".join(current_chunk))
+                
+                # Send first chunk as response
+                embed = discord.Embed(
+                    title="🧪 VIP Upgrade Flow Test (1/1)" if len(chunks) == 1 else f"🧪 VIP Upgrade Flow Test (1/{len(chunks)})",
+                    description=chunks[0],
+                    color=discord.Color.purple()
+                )
+                
+                await interaction.followup.send(embed=embed, ephemeral=True)
+                
+                # Send additional chunks
+                for i, chunk in enumerate(chunks[1:], 2):
+                    embed = discord.Embed(
+                        title=f"🧪 VIP Upgrade Flow Test ({i}/{len(chunks)})",
+                        description=chunk,
+                        color=discord.Color.purple()
+                    )
+                    await interaction.followup.send(embed=embed, ephemeral=True)
+            else:
+                embed = discord.Embed(
+                    title="🧪 VIP Upgrade Flow Test Results",
+                    description=results_text,
+                    color=discord.Color.purple()
+                )
+                
+                await interaction.followup.send(embed=embed, ephemeral=True)
+                
+        except Exception as e:
+            await interaction.followup.send(f"❌ Test failed: {str(e)}", ephemeral=True)
+    
     @app_commands.command(name="cleanup_unauthorized_invites", description="[ADMIN] Remove invites not created by staff")
     async def cleanup_unauthorized_invites(self, interaction: discord.Interaction):
         """Clean up invites that weren't created by authorized staff"""
