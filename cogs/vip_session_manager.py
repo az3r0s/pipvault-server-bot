@@ -243,12 +243,88 @@ class VIPSessionManager(commands.Cog):
     async def _get_referring_staff(self, user_id: int) -> Optional[Dict]:
         """Get the staff member who referred this user (existing functionality)"""
         try:
-            # This would integrate with the existing invite tracking system
-            # For now, return None - will be implemented when we integrate with existing DB
-            return None
+            # Get user's invite information
+            invite_info = self.bot.db.get_user_invite_info(user_id)
+            if not invite_info:
+                logger.info(f"No invite info found for user {user_id}")
+                return None
+            
+            # Get staff configuration based on the invite
+            staff_config = self.bot.db.get_staff_config_by_invite(invite_info['invite_code'])
+            if not staff_config:
+                logger.info(f"No staff config found for invite {invite_info['invite_code']}")
+                return None
+            
+            return {
+                'staff_id': staff_config['staff_id'],
+                'staff_name': staff_config.get('staff_name', 'Unknown'),
+                'staff_username': staff_config.get('staff_username', 'Unknown'),
+                'vantage_referral_link': staff_config.get('vantage_referral_link', ''),
+                'vantage_referral_code': self._extract_referral_code(staff_config.get('vantage_referral_link', ''))
+            }
+            
         except Exception as e:
             logger.error(f"Error getting referring staff for user {user_id}: {e}")
             return None
+    
+    def _extract_referral_code(self, referral_link: str) -> str:
+        """Extract referral code from Vantage referral link"""
+        try:
+            import base64
+            import urllib.parse
+            
+            # Parse the URL to get the affid parameter
+            parsed = urllib.parse.urlparse(referral_link)
+            query_params = urllib.parse.parse_qs(parsed.query)
+            
+            if 'affid' in query_params:
+                # Decode the base64 encoded affiliate ID
+                encoded_affid = query_params['affid'][0]
+                decoded_code = base64.b64decode(encoded_affid + '==').decode('utf-8')  # Add padding if needed
+                return decoded_code
+            
+            return ""
+        except Exception as e:
+            logger.error(f"Error extracting referral code from {referral_link}: {e}")
+            return ""
+    
+    def _replace_referral_info(self, message: str, referring_staff: Optional[Dict]) -> str:
+        """Replace generic referral links/codes with personalized ones"""
+        if not referring_staff:
+            logger.info("No referring staff found, keeping original referral info")
+            return message
+        
+        try:
+            # Define the generic referral info to replace
+            generic_link = 'https://www.vantagemarkets.com/open-live-account/?affid=NzQ3MDMyMA=='
+            generic_code = '7470320'
+            
+            # Get personalized referral info
+            personal_link = referring_staff.get('vantage_referral_link', '')
+            personal_code = referring_staff.get('vantage_referral_code', '')
+            
+            if not personal_link or not personal_code:
+                logger.warning(f"Missing referral info for staff {referring_staff.get('staff_name', 'Unknown')}")
+                return message
+            
+            # Replace in message
+            replaced_message = message
+            
+            # Replace generic link with personal link
+            if generic_link in replaced_message:
+                replaced_message = replaced_message.replace(generic_link, personal_link)
+                logger.info(f"Replaced generic referral link with {referring_staff.get('staff_name', 'Unknown')}'s link")
+            
+            # Replace generic code with personal code  
+            if generic_code in replaced_message:
+                replaced_message = replaced_message.replace(generic_code, personal_code)
+                logger.info(f"Replaced generic referral code with {referring_staff.get('staff_name', 'Unknown')}'s code: {personal_code}")
+            
+            return replaced_message
+            
+        except Exception as e:
+            logger.error(f"Error replacing referral info: {e}")
+            return message
     
     async def _log_session_creation(self, user: discord.User, thread: discord.Thread, 
                                   telegram_account, referring_staff: Optional[Dict]):
@@ -304,6 +380,15 @@ class VIPSessionManager(commands.Cog):
             thread = self.active_threads[user_id]
             logger.info(f"🔍 DEBUG: Found thread {thread.id} for user {user_id}")
             
+            # Get referring staff info for this user and replace referral links/codes
+            referring_staff = await self._get_referring_staff(int(user_id))
+            processed_message = self._replace_referral_info(message_content, referring_staff)
+            
+            if processed_message != message_content:
+                logger.info(f"📋 Processed referral replacements for user {user_id}")
+            else:
+                logger.info(f"ℹ️ No referral replacements needed for user {user_id}")
+            
             # Option 1: Use personal Discord bot to send as your actual account (no APP tag)
             try:
                 from src.personal_discord import get_personal_bot
@@ -311,7 +396,7 @@ class VIPSessionManager(commands.Cog):
                 
                 if personal_bot and personal_bot.running:
                     logger.info(f"🔍 DEBUG: Sending message via personal Discord bot...")
-                    success = await personal_bot.send_message(str(thread.id), message_content)
+                    success = await personal_bot.send_message(str(thread.id), processed_message)
                     
                     if success:
                         logger.info(f"✅ Sent VA reply as personal account to thread {thread.id}")
@@ -326,7 +411,7 @@ class VIPSessionManager(commands.Cog):
             
             # Option 2: Fallback to regular bot message (clean, no embed)
             logger.info(f"🔍 DEBUG: Using fallback bot message...")
-            await thread.send(message_content)
+            await thread.send(processed_message)
             logger.info(f"✅ Sent VA reply as bot message to thread {thread.id}")
             return True
             
