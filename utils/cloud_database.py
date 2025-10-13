@@ -924,6 +924,28 @@ class CloudAPIServerDatabase:
         except Exception as e:
             logger.warning(f"⚠️ Backup failed: {e}")
 
+    def update_staff_username(self, staff_id: int, username: str) -> bool:
+        """Update staff username in the database"""
+        try:
+            conn = sqlite3.connect(self.db_path, timeout=10.0)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                UPDATE staff_invites 
+                SET staff_username = ? 
+                WHERE staff_id = ?
+            ''', (username, staff_id))
+            
+            conn.commit()
+            conn.close()
+            
+            logger.info(f"✅ Updated staff username for ID {staff_id} to {username}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Error updating staff username: {e}")
+            return False
+
     async def periodic_backup(self):
         """Periodic backup every 30 minutes"""
         while True:

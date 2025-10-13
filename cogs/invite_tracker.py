@@ -27,14 +27,30 @@ class InviteTracker(commands.Cog):
         
         # Cache current invites for all guilds
         for guild in self.bot.guilds:
-            await self.cache_guild_invites(guild)
+            try:
+                await self.cache_guild_invites(guild)
+                logger.info(f"✅ Cached invites for guild: {guild.name}")
+            except Exception as e:
+                logger.error(f"❌ Failed to cache invites for {guild.name}: {e}")
     
     async def cache_guild_invites(self, guild):
         """Cache current invite uses for a guild"""
         try:
-            invites = await guild.invites()
-            self.invite_cache[guild.id] = {}
+            # Check if bot has permission to manage guild/view invites
+            if not guild.me.guild_permissions.manage_guild:
+                logger.warning(f"⚠️ Bot lacks 'Manage Server' permission in {guild.name} - invite tracking limited")
+                return
             
+            invites = await guild.invites()
+            
+            # Initialize cache for this guild if it doesn't exist
+            if guild.id not in self.invite_cache:
+                self.invite_cache[guild.id] = {}
+            else:
+                # Clear existing cache
+                self.invite_cache[guild.id].clear()
+            
+            # Cache all invites
             for invite in invites:
                 self.invite_cache[guild.id][invite.code] = {
                     'uses': invite.uses,
@@ -44,6 +60,8 @@ class InviteTracker(commands.Cog):
             
             logger.info(f"📊 Cached {len(invites)} invites for {guild.name}")
             
+        except discord.Forbidden:
+            logger.error(f"❌ Bot lacks permission to view invites for {guild.name}")
         except Exception as e:
             logger.error(f"❌ Error caching invites for {guild.name}: {e}")
     
@@ -292,6 +310,10 @@ class InviteTracker(commands.Cog):
         try:
             guild = ctx.guild
             
+            # Force refresh cache if it doesn't exist
+            if guild.id not in self.invite_cache:
+                await self.cache_guild_invites(guild)
+            
             # Get current live invites
             current_invites = await guild.invites()
             
@@ -306,8 +328,12 @@ class InviteTracker(commands.Cog):
             if guild.id in self.invite_cache:
                 cache_count = len(self.invite_cache[guild.id])
                 cache_info = f"✅ Cache exists with {cache_count} invites"
+                
+                # If cache was just created, mention it
+                if cache_count > 0:
+                    cache_info += "\n🔄 Cache refreshed during debug"
             else:
-                cache_info = "❌ No cache found for this guild"
+                cache_info = "❌ Failed to create cache for this guild"
             
             embed.add_field(
                 name="📊 Cache Status",
@@ -320,11 +346,13 @@ class InviteTracker(commands.Cog):
             for invite in current_invites[:5]:  # Limit to first 5
                 inviter_name = invite.inviter.name if invite.inviter else "System"
                 cached_uses = "Not cached"
+                cache_status = "❌"
                 
                 if guild.id in self.invite_cache and invite.code in self.invite_cache[guild.id]:
                     cached_uses = str(self.invite_cache[guild.id][invite.code]['uses'])
+                    cache_status = "✅" if str(invite.uses) == cached_uses else "⚠️"
                 
-                live_vs_cache += f"**{invite.code}** ({inviter_name})\n"
+                live_vs_cache += f"{cache_status} **{invite.code}** ({inviter_name})\n"
                 live_vs_cache += f"Live: {invite.uses} | Cached: {cached_uses}\n\n"
             
             if live_vs_cache:
@@ -334,11 +362,26 @@ class InviteTracker(commands.Cog):
                     inline=False
                 )
             
+            # Add bot permissions check
+            perms = guild.me.guild_permissions
+            perms_info = f"Manage Guild: {'✅' if perms.manage_guild else '❌'}\n"
+            perms_info += f"Create Invites: {'✅' if perms.create_instant_invite else '❌'}\n"
+            perms_info += f"View Audit Log: {'✅' if perms.view_audit_log else '❌'}"
+            
+            embed.add_field(
+                name="🤖 Bot Permissions",
+                value=perms_info,
+                inline=True
+            )
+            
             # Show staff invite codes
             staff_invites = self.bot.db.get_all_staff_configs()
             staff_info = ""
             for staff in staff_invites[:5]:  # Limit to first 5
-                staff_info += f"**{staff['staff_username']}**: {staff['invite_code']}\n"
+                username = staff.get('staff_username', 'Unknown')
+                if username is None:
+                    username = 'Unknown'
+                staff_info += f"**{username}**: {staff['invite_code']}\n"
             
             if staff_info:
                 embed.add_field(
@@ -365,6 +408,45 @@ class InviteTracker(commands.Cog):
             
         except Exception as e:
             logger.error(f"❌ Error refreshing invite cache: {e}")
+            await ctx.send(f"❌ Error: {str(e)}")
+    
+    @commands.hybrid_command(name="fix_staff_usernames")
+    @commands.has_permissions(administrator=True)
+    async def fix_staff_usernames(self, ctx):
+        """Fix missing staff usernames in database by syncing with config"""
+        try:
+            # Get all staff configs from database
+            staff_configs = self.bot.db.get_all_staff_configs()
+            fixed_count = 0
+            
+            for staff_config in staff_configs:
+                if staff_config.get('staff_username') is None or staff_config.get('staff_username') == 'None':
+                    # Try to get the username from the config file
+                    staff_from_config = self.bot.db.get_staff_config_by_invite(staff_config['invite_code'])
+                    
+                    if staff_from_config and staff_from_config.get('username'):
+                        # Update the database with the correct username
+                        success = self.bot.db.update_staff_username(
+                            staff_config['staff_id'], 
+                            staff_from_config['username']
+                        )
+                        
+                        if success:
+                            fixed_count += 1
+                            logger.info(f"✅ Fixed username for staff ID {staff_config['staff_id']}")
+            
+            if fixed_count > 0:
+                # Backup to cloud
+                try:
+                    await self.bot.db.backup_to_cloud()
+                    logger.info("☁️ Staff username fixes backed up to cloud")
+                except Exception as backup_error:
+                    logger.error(f"❌ Failed to backup staff username fixes: {backup_error}")
+            
+            await ctx.send(f"✅ Fixed {fixed_count} staff usernames in database")
+            
+        except Exception as e:
+            logger.error(f"❌ Error fixing staff usernames: {e}")
             await ctx.send(f"❌ Error: {str(e)}")
     
     @commands.hybrid_command(name="update_existing_vips")
