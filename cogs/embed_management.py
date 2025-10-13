@@ -344,7 +344,7 @@ class EmbedManagement(commands.Cog):
         # Main FAQ intro
         embed1 = discord.Embed(
             title="❓ Frequently Asked Questions",
-            description="**🎯 HOW WE TRADE OUR SIGNALS**\n\nOur signals primarily focus on **Gold (XAUUSD)** 🥇 — offering excellent volatility and consistent opportunities for profit.",
+            description="**🎯 HOW WE TRADE OUR SIGNALS**\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nOur signals primarily focus on **Gold (XAUUSD)** 🥇 — offering excellent volatility and consistent opportunities for profit.\n\n",
             color=0x0099ff
         )
 
@@ -363,158 +363,249 @@ class EmbedManagement(commands.Cog):
 🎯 TP3: 2644.0
 🎯 TP4: 2642.0
 🎯 TP5: 2640.0
-```""",
+```
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━""",
             inline=False
         )
 
         embed1.add_field(
             name="**🔧 Recommended Broker:**",
-            value="Vantage Markets (optimized pricing & execution)",
+            value="**Vantage Markets** (optimized pricing & execution)\n\n*Why Vantage?* Tightest spreads, fastest execution, and seamless MT5 integration with our copy trading system.",
             inline=False
         )
 
         # Trading methods embed
         embed2 = discord.Embed(
             title="📌 Trading Methods & Strategies",
+            description="**Choose the method that best suits your trading style and risk tolerance:**\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
             color=0x0099ff
         )
 
         embed2.add_field(
             name="**📌 MAIN METHOD — LAYER & MANAGE**",
-            value="""• 📍 **Layer your entries** across the zone — e.g. LIMIT SELL at 2650.0, 2651.0, and 2652.0 (referencing our example signal above).
-• ⚖️ **Use equal position sizes** at each layer, or place the largest size in the middle of the zone.
-• 🛑 **IMPORTANT:** Set your Stop Loss (SL) on all limits as soon as you place them.
-• ✅ **Close 50% of your position** at TP1 (2648.0).
-• 📊 **Take more partials** at each next TP (2646.0, 2644.0, etc.).
-• 📈 **Trail your SL** as price moves in your favour.
+            value="""**Step 1: Entry Setup**
+• 📍 **Layer your entries** across the zone 
+  *Example: LIMIT SELL at 2650, 2651, and 2652*
 
-💡 This approach aims to capture the full move from start to finish — banking profits along the way while leaving a portion of your trade to ride big trends.""",
+• ⚖️ **Position sizing options:**
+  - Equal sizes at each layer, OR
+  - Largest size in the middle of the zone
+
+• 🛑 **CRITICAL:** Set your Stop Loss (SL) on ALL limit orders immediately
+
+**Step 2: Profit Management**
+• ✅ **Close 50% of your position** at TP1
+• 📊 **Take more partials** at each subsequent TP
+• 📈 **Trail your SL** as price moves in your favor
+
+**💡 Strategy Goal:**
+*Capture the full move from start to finish — banking profits along the way while leaving runners for big trends.*""",
             inline=False
         )
 
         # Alternative method embed
         embed3 = discord.Embed(
             title="📈 Alternative Trading Strategy",
+            description="**For traders who prefer capital protection over maximum profit potential:**\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
             color=0x0099ff
         )
 
         embed3.add_field(
             name="**📌 ALTERNATIVE METHOD — STEP-UP STOP LOSS**",
-            value="""• ⏳ **Wait until price bounces** from your entry zone (2650.0-2652.0) or TP1 is hit (2648.0).
-• 🔒 **Move SL to BE** (Break Even) on all entries at this stage.
-• 📈 **When TP2 is hit** (2646.0), move SL to TP1 (2648.0).
-• 📈 **When TP3 is hit** (2644.0), move SL to TP2 (2646.0), and so on.
-• 🪙 **Keep small runners** for any remaining targets.
+            value="""**Phase 1: Patient Entry**
+• ⏳ **Wait for confirmation** — price bounce from entry zone OR TP1 hit
+• 🔒 **Move SL to Break Even** on ALL entries at this stage
 
-💡 This method focuses on capital protection first — locking in safety as the trade progresses while still leaving the door open for profit from runners.""",
+**Phase 2: Progressive Protection**
+• 📈 **TP2 hit?** → Move SL to TP1
+• 📈 **TP3 hit?** → Move SL to TP2  
+• 📈 **Continue pattern** for each subsequent TP level
+
+**Phase 3: Runner Management**
+• 🪙 **Keep small runners** for any remaining open targets
+• �️ **Risk-free profit** locked in at every step
+
+**💡 Method Focus:**
+*Capital protection first — locking in safety as the trade progresses while keeping the door open for profit from runners.*""",
             inline=False
         )
 
         embed3.add_field(
             name="✨ **Pro Tip:**",
-            value="Experiment with both methods to see which best matches your style, risk appetite, and trading psychology. The key is consistency in execution.",
+            value="""**Find Your Trading Style:**
+
+Experiment with both methods to discover what matches your:
+• Risk appetite 📊
+• Trading psychology 🧠  
+• Available time for management ⏰
+
+**Remember:** Consistency in execution beats perfect strategy every time! 🎯""",
             inline=False
         )
 
         # MT5 integration embed
         embed4 = discord.Embed(
             title="🤖 MT5 Integration & Automation",
+            description="**Experience the future of copy trading with our advanced MT5 integration:**\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
             color=0x0099ff
         )
 
         embed4.add_field(
-            name="**🤖 BETA: AUTOMATED COPY TRADING**",
-            value="""• Link your MT5 account through our Discord bot
+            name="**🤖 AUTOMATED COPY TRADING FEATURES**",
+            value="""**🔗 Account Integration:**
+• Link your MT5 account through our Discord bot
+• Secure admin-only linking process for safety
+
+**⚙️ Smart Automation:**
 • Automated position sizing based on your risk settings
-• Multi-account support (demo, live, with configurable stats)
-• Real-time performance tracking with `/mt5-stats`
-• Leaderboard rankings with `/mt5-leaderboard`
+• Multi-account support (demo + live accounts)
+• Configurable stats and performance tracking
 
-**⚠️ BETA STATUS:**
-These features are currently in **limited beta testing**. Only selected users have access while we finalize the system. Contact our staff to register interest for beta access!
+**📊 Performance Monitoring:**
+• Real-time tracking with `/mt5-stats` command
+• Community leaderboard with `/mt5-leaderboard`
+• Detailed analytics and trade history""",
+            inline=False
+        )
 
-**Full public release coming soon!**""",
+        embed4.add_field(
+            name="**⚠️ DEVELOPMENT STATUS**",
+            value="""**🧪 Currently in BETA testing phase**
+
+✅ **Available now:** Demo account trials  
+🔜 **Coming soon:** Full live account integration
+
+**Want early access?** Contact our staff team to register your interest for full beta testing!""",
             inline=False
         )
 
         embed4.add_field(
             name="**🚫 MISSED A SIGNAL?**",
-            value="""**Don't chase!** We provide 5-10 high-quality signals daily.
-Wait for the next setup — consistency beats desperation.
-If we suggest re-entry, use **maximum 50%** of normal position size.""",
+            value="""**⚠️ Golden Rule: DON'T CHASE!**
+
+**Why not chase?**
+• We provide 5-10 high-quality signals daily
+• Quality over quantity approach
+• Next opportunity is never far away
+
+**If we suggest re-entry:**
+• Use **MAXIMUM 50%** of normal position size
+• Wait for clear confirmation
+• Patience beats desperation every time! 🎯""",
             inline=False
         )
 
         # Membership options embed
         embed5 = discord.Embed(
             title="💎 VIP Membership & Access",
+            description="**Choose the VIP option that best fits your trading goals:**\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
             color=0x0099ff
         )
 
         embed5.add_field(
-            name="**💎 VIP MEMBERSHIP ACCESS**",
-            value="""**🚀 Trade with Vantage (Our IB Partner)**
-• ✅ **No monthly fees** — just remain active trading
-• 🎯 **Optimized signals** specifically for Vantage execution
-• 📊 **Best pricing** with minimal slippage and spreads
-• 🤖 **MT5 integration** with automated copy trading *(beta access)*
-• 📈 **Real-time tracking** of your performance *(beta access)*
-• 🏆 **VIP Discord access** to premium signals and analysis
-• 🎯 **Direct support** from our trading team
+            name="**💎 VANTAGE IB PARTNERSHIP**",
+            value="""**🌟 RECOMMENDED CHOICE**
 
-**Ready to get started?** Contact our staff to begin the VIP onboarding process and discuss beta access!""",
+**💰 Cost:** FREE — No monthly fees
+**📋 Requirements:** Remain active trader with Vantage
+
+**✅ What You Get:**
+• 🎯 Signals optimized for Vantage execution
+• 📊 Best pricing and minimal slippage  
+• 🤖 Full MT5 integration and copy trading
+• 📈 Priority support and analysis
+• � Community leaderboard access
+
+**Why Vantage?** Our partnership ensures optimal signal execution and seamless automation.""",
             inline=False
         )
 
         embed5.add_field(
-            name="**🔗 MT5 ACCOUNT LINKING** *(Beta Feature)*",
-            value="""• Contact staff to link your MT5 account
+            name="**🔗 MT5 ACCOUNT LINKING PROCESS**",
+            value="""**🔐 Secure & Simple Setup:**
+
+**Step 1:** Contact our staff team
+**Step 2:** Secure verification process  
+**Step 3:** Account linking completed
+
+**📊 Features:**
 • Multiple accounts supported (demo + live)
 • Automated performance tracking
 • Risk management integration
-• Secure admin-only linking process
+• Admin-only security protocols
 
-⚠️ **Currently in beta testing** - available to limited users while we perfect the system!""",
+**💡 Pro Tip:** Start with a demo account to test the system risk-free!""",
             inline=False
         )
 
         # Bot commands and final info embed
         embed6 = discord.Embed(
             title="🔧 Bot Commands & Additional Info",
+            description="**Master our Discord bot commands and risk management system:**\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
             color=0x0099ff
         )
 
         embed6.add_field(
-            name="**📊 DISCORD BOT COMMANDS** *(Beta Access Only)*",
-            value="""• `/mt5-stats` — Your complete trading statistics
+            name="**📊 ESSENTIAL BOT COMMANDS**",
+            value="""**📈 Performance Tracking:**
+• `/mt5-stats` — Your complete trading statistics
 • `/mt5-accounts` — View all linked accounts
 • `/mt5-account-stats` — Performance by specific account
+
+**🏆 Community Features:**  
 • `/mt5-leaderboard` — Community rankings
 • `/refresh-mt5-stats` — Update cached data
 
-⚠️ **Limited Beta Access:** These commands are currently available only to selected beta testers. Full rollout coming soon!""",
+**💡 Pro Tip:** Use these commands regularly to track your progress and stay motivated!""",
             inline=False
         )
 
         embed6.add_field(
-            name="**💼 RISK MANAGEMENT SETTINGS**",
-            value="""• **Gold Signals:** 5% account risk per trade
+            name="**💼 SMART RISK MANAGEMENT**",
+            value="""**📊 Default Risk Settings:**
+• **Gold Signals:** 5% account risk per trade
 • **Forex Signals:** 3% account risk per trade  
 • **Re-entry Signals:** 2% account risk per trade
-• These are default values the bot uses automatically
-• Customizable per account through staff""",
+
+**⚙️ Customization Options:**
+• Bot uses these values automatically
+• Fully customizable per account
+• Contact staff for personalized settings
+
+**🛡️ Why This Matters:** Proper risk management is the foundation of profitable trading!""",
             inline=False
         )
 
         embed6.add_field(
             name="**📈 WANT PROOF?**",
-            value="Check our ⁠results channels for verified VIP performance data.\nOur community members' success speaks for itself!",
+            value="""**🔍 Verified Performance Data:**
+
+Check our **results channels** for real VIP performance data!
+
+**What you'll find:**
+• Verified trading results
+• Community member success stories  
+• Transparent performance metrics
+• Live trading screenshots
+
+**💪 Our members' success speaks for itself!**""",
             inline=False
         )
 
         embed6.add_field(
-            name="**❓ MORE QUESTIONS?**",
-            value="DM any staff member anytime — we're here to help you succeed! 💪",
+            name="**❓ NEED MORE HELP?**",
+            value="""**🤝 We're Here for You:**
+
+**Staff Support:**
+• DM any staff member anytime
+• Fast response times
+• Personal trading guidance
+• Technical support available
+
+**💪 We're committed to your success — never hesitate to ask questions!**
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━""",
             inline=False
         )
 
