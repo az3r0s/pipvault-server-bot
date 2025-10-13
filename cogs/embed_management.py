@@ -39,41 +39,92 @@ class EmbedManagement(commands.Cog):
     async def send_welcome_embeds(self, channel):
         """Send welcome embed to new members"""
         
+        # Main welcome embed with better visual design
         embed = discord.Embed(
-            title="🎉 Welcome to PipVault!",
-            description="*Your Path to Prosperity*\n\nHey there, new trader! Welcome to our premier trading community! 🚀\n\n**Start your journey to financial success with us!**\n\n━━━━━━━━━━━━━━━━━━━━━━━━",
-            color=0x00ff00
+            title="� Welcome to PipVault!",
+            description="```yaml\n🌟 Your Path to Prosperity Starts Here 🌟\n```\n\n**Hey there, future trading legend!** 🚀\n\nWelcome to our **elite trading community** where we turn market moves into profit opportunities!\n\n> *Join thousands of successful traders on their journey to financial freedom* 💎",
+            color=0x2E8B57  # Professional green
         )
 
+        # Visual enhancement without external images
+        
         embed.add_field(
-            name="📋 **Getting Started**",
-            value="""• 📜 Read our <#1401614582845280316> to understand community guidelines\n\n• 📢 Check <#1401614583801712732> for important updates\n\n• 💬 Join conversations in our community channels""",
+            name="🎯 **Quick Start Guide**",
+            value="""```
+1️⃣ Read our rules
+2️⃣ Check announcements  
+3️⃣ Join the conversation
+```
+📜 **Rules:** <#1401614582845280316>
+📢 **Updates:** <#1401614583801712732>
+💬 **Chat:** Jump into any channel!""",
             inline=True
         )
 
         embed.add_field(
-            name="💎 **VIP Benefits**",
-            value="""• 🎯 Premium gold signals with high accuracy\n\n• 📊 Advanced market analysis & insights\n\n• 🏆 Exclusive VIP community access""",
+            name="💎 **Premium VIP Access**",
+            value="""```
+✨ Premium Gold Signals
+📊 Advanced Analysis
+🎯 High-Accuracy Setups
+🤖 MT5 Auto-Trading
+```
+**Trade with our Vantage IB partner for full VIP access!**
+
+*No monthly fees - just active trading*""",
             inline=True
         )
 
         embed.add_field(
-            name="🆓 **Free Access**",
-            value="""• Daily signals and market analysis\n\n• Educational content & trading tips\n\n• Active community discussions""",
+            name="🆓 **Free Community Benefits**",
+            value="""```
+📈 Daily Market Insights
+🎓 Educational Content
+💡 Trading Tips & Tricks
+🤝 Active Community
+```
+**Available to all members immediately!**
+
+*Perfect for learning and growing*""",
             inline=True
         )
 
+        # Full-width feature showcase
         embed.add_field(
-            name="🚀 **Upcoming Features (Beta Testing)**",
-            value="""• 🤖 Advanced Discord bot integration\n\n• 📈 Real-time performance tracking\n\n• 🏅 Community leaderboards\n\n• 📱 MT5 account management tools\n\n*These exciting features are coming soon!*""",
+            name="🚀 **Advanced Features (Beta Testing)**",
+            value="""**🤖 Discord Bot Integration:** *(Limited Beta Access)*
+• `/mt5-stats` - View your trading performance
+• `/mt5-accounts` - Manage multiple MT5 accounts  
+• `/mt5-leaderboard` - See community rankings
+• `/refresh-mt5-stats` - Update your data
+
+**📊 Advanced Features:**
+• Automated copy trading • Performance tracking • Risk management • Multi-account support
+
+⚠️ **Beta Status:** These features are currently available to selected beta testers only. Full release coming soon!
+
+**Contact our staff about beta access and MT5 account linking!** 🔗""",
             inline=False
         )
 
+        # Call to action with visual separator
         embed.add_field(
-            name="✨ **Ready to Get Started?**",
-            value="**Read the rules, explore our channels, and start your path to prosperity! 📊✨**\n\n━━━━━━━━━━━━━━━━━━━━━━━━",
+            name="⭐ **Ready to Start Your Success Story?**",
+            value="""```diff
++ Read the rules and dive in!
++ Ask questions - our community helps each other
++ Contact staff about VIP access through Vantage
++ Start small, think big, trade smart! 
+```
+
+**Welcome to the PipVault family!** 🏆✨
+
+*Where disciplined trading meets prosperity* �""",
             inline=False
         )
+
+        # Add footer with branding
+        embed.set_footer(text="PipVault Trading Community • Your Path to Prosperity")
 
         await channel.send(embed=embed)
 
@@ -364,16 +415,17 @@ class EmbedManagement(commands.Cog):
         )
 
         embed4.add_field(
-            name="**🤖 NEW: AUTOMATED COPY TRADING**",
+            name="**🤖 BETA: AUTOMATED COPY TRADING**",
             value="""• Link your MT5 account through our Discord bot
 • Automated position sizing based on your risk settings
 • Multi-account support (demo, live, with configurable stats)
 • Real-time performance tracking with `/mt5-stats`
 • Leaderboard rankings with `/mt5-leaderboard`
 
-**⚠️ DEVELOPMENT STATUS:**
-Currently in testing phase. Available for demo account trials!
-Contact our staff to register interest for full early access.""",
+**⚠️ BETA STATUS:**
+These features are currently in **limited beta testing**. Only selected users have access while we finalize the system. Contact our staff to register interest for beta access!
+
+**Full public release coming soon!**""",
             inline=False
         )
 
@@ -392,28 +444,29 @@ If we suggest re-entry, use **maximum 50%** of normal position size.""",
         )
 
         embed5.add_field(
-            name="**💎 VIP MEMBERSHIP OPTIONS**",
-            value="""**Option 1: Trade with Vantage (Our IB) — RECOMMENDED**
-• ✅ No monthly fee — just remain active
-• 🎯 Signals optimized for Vantage execution
-• 📊 Best pricing and minimal slippage
-• 🤖 Full MT5 integration and tracking
+            name="**💎 VIP MEMBERSHIP ACCESS**",
+            value="""**🚀 Trade with Vantage (Our IB Partner)**
+• ✅ **No monthly fees** — just remain active trading
+• 🎯 **Optimized signals** specifically for Vantage execution
+• 📊 **Best pricing** with minimal slippage and spreads
+• 🤖 **MT5 integration** with automated copy trading *(beta access)*
+• 📈 **Real-time tracking** of your performance *(beta access)*
+• 🏆 **VIP Discord access** to premium signals and analysis
+• 🎯 **Direct support** from our trading team
 
-**Option 2: Monthly Subscription — £60/month**
-• 💰 Affordable for serious traders
-• 📈 Compatible with any broker
-• 🏆 Same premium signals and analysis
-• 🤖 Copy trader access not included in this plan""",
+**Ready to get started?** Contact our staff to begin the VIP onboarding process and discuss beta access!""",
             inline=False
         )
 
         embed5.add_field(
-            name="**🔗 MT5 ACCOUNT LINKING**",
+            name="**🔗 MT5 ACCOUNT LINKING** *(Beta Feature)*",
             value="""• Contact staff to link your MT5 account
 • Multiple accounts supported (demo + live)
 • Automated performance tracking
 • Risk management integration
-• Secure admin-only linking process""",
+• Secure admin-only linking process
+
+⚠️ **Currently in beta testing** - available to limited users while we perfect the system!""",
             inline=False
         )
 
@@ -424,12 +477,14 @@ If we suggest re-entry, use **maximum 50%** of normal position size.""",
         )
 
         embed6.add_field(
-            name="**📊 DISCORD BOT COMMANDS**",
+            name="**📊 DISCORD BOT COMMANDS** *(Beta Access Only)*",
             value="""• `/mt5-stats` — Your complete trading statistics
 • `/mt5-accounts` — View all linked accounts
 • `/mt5-account-stats` — Performance by specific account
 • `/mt5-leaderboard` — Community rankings
-• `/refresh-mt5-stats` — Update cached data""",
+• `/refresh-mt5-stats` — Update cached data
+
+⚠️ **Limited Beta Access:** These commands are currently available only to selected beta testers. Full rollout coming soon!""",
             inline=False
         )
 
