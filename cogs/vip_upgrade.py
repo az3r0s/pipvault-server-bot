@@ -1772,17 +1772,28 @@ class VIPUpgrade(commands.Cog):
                     user = self.bot.get_user(staff_id)
                     username = user.display_name if user else f"User {staff_id}"
                     
-                    # Create a fresh permanent invite
-                    if interaction.guild:
-                        invite = await interaction.guild.create_invite(
-                            max_age=0,        # Never expires
-                            max_uses=0,       # Unlimited uses
-                            temporary=False,  # Members stay permanently
-                            unique=True,      # Force create new unique invite
-                            reason=f"Fresh staff invite for {username}"
-                        )
-                    else:
+                    # Create a fresh permanent invite (using same logic as create_staff_invite)
+                    if not interaction.guild:
                         raise Exception("Guild not available")
+                        
+                    invite_channel = None
+                    
+                    # Find a suitable channel for creating the invite
+                    for channel in interaction.guild.text_channels:
+                        if channel.permissions_for(interaction.guild.me).create_instant_invite:
+                            invite_channel = channel
+                            break
+                    
+                    if not invite_channel:
+                        raise Exception("No suitable channel found for invite creation")
+                    
+                    invite = await invite_channel.create_invite(
+                        max_age=0,        # Never expires
+                        max_uses=0,       # Unlimited uses
+                        temporary=False,  # Members stay permanently
+                        unique=True,      # Force create new unique invite
+                        reason=f"Fresh staff invite for {username}"
+                    )
                     
                     # Update database with new invite code
                     success = self.bot.db.update_staff_invite_code(staff_id, invite.code)
