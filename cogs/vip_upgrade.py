@@ -336,13 +336,22 @@ class VIPUpgrade(commands.Cog):
             
             # Find the welcome channel first, then fallback to other channels
             invite_channel = None
+            WELCOME_CHANNEL_ID = 1401614581503365244
+            preferred_channels = ['welcome', 'general', 'lobby', 'main']
             
-            # First priority: find welcome channel
-            for channel in interaction.guild.text_channels:
-                if (channel.name.lower() in ['welcome', 'general', 'lobby', 'main'] and 
-                    channel.permissions_for(interaction.guild.me).create_instant_invite):
-                    invite_channel = channel
-                    break
+            # First priority: use the specific welcome channel ID
+            welcome_channel = interaction.guild.get_channel(WELCOME_CHANNEL_ID)
+            if (welcome_channel and 
+                welcome_channel.permissions_for(interaction.guild.me).create_instant_invite):
+                invite_channel = welcome_channel
+            
+            # Second priority: find welcome/general channel by name
+            if not invite_channel:
+                for channel in interaction.guild.text_channels:
+                    if (channel.name.lower() in preferred_channels and 
+                        channel.permissions_for(interaction.guild.me).create_instant_invite):
+                        invite_channel = channel
+                        break
             
             # Fallback: any channel where bot can create invites
             if not invite_channel:
@@ -406,7 +415,7 @@ class VIPUpgrade(commands.Cog):
                     )
                     dm_embed.add_field(
                         name="🔗 Your Invite Link",
-                        value=f"[{invite.url}]({invite.url})",
+                        value=f"[Click here to copy your link]({invite.url})",
                         inline=False
                     )
                     dm_embed.add_field(
@@ -421,6 +430,10 @@ class VIPUpgrade(commands.Cog):
                     )
                     
                     await staff_member.send(embed=dm_embed)
+                    
+                    # Send a separate message with just the link for easy copying
+                    await staff_member.send(f"🔗 **Your invite link for easy copying:**\n{invite.url}")
+                    
                     await interaction.followup.send(f"✅ **DM sent successfully** to {staff_member.mention}", ephemeral=True)
                     
                 except discord.Forbidden:
@@ -2125,20 +2138,33 @@ class VIPUpgrade(commands.Cog):
             
             # Find the welcome channel first, then fallback to other channels
             invite_channel = None
+            WELCOME_CHANNEL_ID = 1401614581503365244
+            preferred_channels = ['welcome', 'general', 'lobby', 'main']
             
-            # First priority: find welcome channel
-            for channel in interaction.guild.text_channels:
-                if (channel.name.lower() in ['welcome', 'general', 'lobby', 'main'] and 
-                    channel.permissions_for(interaction.guild.me).create_instant_invite):
-                    invite_channel = channel
-                    break
-            
-            # Fallback: any channel where bot can create invites
-            if not invite_channel:
-                for channel in interaction.guild.text_channels:
-                    if channel.permissions_for(interaction.guild.me).create_instant_invite:
-                        invite_channel = channel
-                        break
+            # First priority: use the specific welcome channel ID
+            if interaction.guild:
+                welcome_channel = interaction.guild.get_channel(WELCOME_CHANNEL_ID)
+                if (welcome_channel and 
+                    welcome_channel.permissions_for(interaction.guild.me).create_instant_invite):
+                    invite_channel = welcome_channel
+                    results.append(f"🎯 Using welcome channel: {welcome_channel.name}")
+                
+                # Second priority: find welcome/general channel by name
+                if not invite_channel:
+                    for channel in interaction.guild.text_channels:
+                        if (channel.name.lower() in preferred_channels and 
+                            channel.permissions_for(interaction.guild.me).create_instant_invite):
+                            invite_channel = channel
+                            results.append(f"🎯 Found preferred channel: {channel.name}")
+                            break
+                
+                # Fallback: any channel where bot can create invites (but warn about it)
+                if not invite_channel:
+                    for channel in interaction.guild.text_channels:
+                        if channel.permissions_for(interaction.guild.me).create_instant_invite:
+                            invite_channel = channel
+                            results.append(f"⚠️  No welcome/general channel found, using: {channel.name}")
+                            break
             
             if not invite_channel:
                 await interaction.followup.send("❌ Cannot create invites - no suitable channel found", ephemeral=True)
@@ -2188,7 +2214,7 @@ class VIPUpgrade(commands.Cog):
                                 )
                                 dm_embed.add_field(
                                     name="🔗 Your Invite Link",
-                                    value=f"[{invite.url}]({invite.url})",
+                                    value=f"[Click here to copy your link]({invite.url})",
                                     inline=False
                                 )
                                 dm_embed.add_field(
@@ -2212,6 +2238,10 @@ class VIPUpgrade(commands.Cog):
                                 )
                                 
                                 await user.send(embed=dm_embed)
+                                
+                                # Send a separate message with just the link for easy copying
+                                await user.send(f"🔗 **Your invite link for easy copying:**\n{invite.url}")
+                                
                                 results.append(f"    📧 DM sent to {username}")
                                 
                             except discord.Forbidden:
