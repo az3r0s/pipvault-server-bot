@@ -226,7 +226,25 @@ class TelegramAccountManager:
                 # Only process if this account has an active session
                 if account.current_user_id:
                     sender = await event.get_sender()
-                    message_text = event.message.message
+                    message_text = event.message.message or ""
+                    
+                    # Handle media messages (video, voice, etc.)
+                    if event.message.media and not message_text:
+                        if hasattr(event.message.media, 'voice'):
+                            message_text = "🎤 Voice message"
+                        elif hasattr(event.message.media, 'video'):
+                            message_text = "🎥 Video message"
+                        elif hasattr(event.message.media, 'photo'):
+                            message_text = "📷 Photo"
+                        elif hasattr(event.message.media, 'document'):
+                            message_text = "📎 File attachment"
+                        else:
+                            message_text = "📱 Media message"
+                    
+                    # Skip empty messages (shouldn't happen now)
+                    if not message_text.strip():
+                        logger.warning(f"⚠️ Skipping empty message from {sender.first_name}")
+                        return
                     
                     logger.info(f"📨 Received message from {sender.first_name} for user {account.current_user_id}")
                     

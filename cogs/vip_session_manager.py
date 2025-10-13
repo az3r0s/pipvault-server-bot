@@ -364,6 +364,12 @@ class VIPSessionManager(commands.Cog):
             message.channel.id not in self.thread_sessions):
             return
         
+        # CRITICAL: Prevent echo loop - don't forward messages from personal Discord account
+        personal_discord_id = 243819020040536065  # thegoldtradingresults
+        if message.author.id == personal_discord_id:
+            logger.info(f"🔍 DEBUG: Ignoring message from personal Discord account to prevent echo loop")
+            return
+        
         user_id = self.thread_sessions[message.channel.id]
         
         # Handle end session command
