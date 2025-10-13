@@ -85,6 +85,13 @@ class InviteTracker(commands.Cog):
                 )
                 
                 if success:
+                    # CRITICAL: Immediately backup to cloud for deployment persistence
+                    try:
+                        await self.bot.db.backup_to_cloud()
+                        logger.info(f"☁️ Join data backed up to cloud API for user {member.name}")
+                    except Exception as backup_error:
+                        logger.error(f"❌ Failed to backup join data to cloud: {backup_error}")
+                    
                     logger.info(f"👥 {member.name} joined via invite {used_invite['code']} by {used_invite['inviter'].name if used_invite['inviter'] else 'Unknown'}")
                     
                     # Send notification to staff member (optional)

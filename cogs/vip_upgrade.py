@@ -1340,6 +1340,57 @@ class VIPUpgrade(commands.Cog):
             logger.error(f"❌ Error adding staff invite: {e}")
             await interaction.response.send_message(f"❌ Error: {str(e)}", ephemeral=True)
     
+    @app_commands.command(name="manually_record_join", description="[ADMIN] Manually record a user join via staff invite")
+    @app_commands.describe(
+        user="The user who joined",
+        invite_code="The invite code they used",
+        staff_member="The staff member who owns the invite"
+    )
+    async def manually_record_join(self, interaction: discord.Interaction, 
+                                 user: discord.Member, invite_code: str, staff_member: discord.Member):
+        """Manually record a user join for invite tracking"""
+        if not (isinstance(interaction.user, discord.Member) and interaction.user.guild_permissions.administrator):
+            await interaction.response.send_message("❌ You need administrator permissions to use this command.", ephemeral=True)
+            return
+        
+        try:
+            # Record the join in the invite tracking table
+            success = self.bot.db.record_user_join_manual(
+                user_id=user.id,
+                username=user.name,
+                invite_code=invite_code,
+                inviter_id=staff_member.id,
+                inviter_username=f"{staff_member.name}#{staff_member.discriminator}",
+                joined_at=user.joined_at
+            )
+            
+            if success:
+                # Immediately backup to cloud API for persistence
+                await self.bot.db.backup_to_cloud()
+                
+                embed = discord.Embed(
+                    title="✅ User Join Recorded",
+                    description=f"Successfully recorded {user.mention}'s join via invite `{invite_code}`",
+                    color=discord.Color.green()
+                )
+                embed.add_field(name="👤 User", value=f"{user.display_name} ({user.id})", inline=True)
+                embed.add_field(name="🔗 Invite", value=invite_code, inline=True)
+                embed.add_field(name="👥 Staff", value=staff_member.mention, inline=True)
+                join_time = user.joined_at.strftime("%Y-%m-%d %H:%M:%S") if user.joined_at else "Unknown"
+                embed.add_field(name="📅 Joined", value=join_time, inline=False)
+                embed.add_field(name="☁️ Status", value="Backed up to cloud API", inline=False)
+            else:
+                embed = discord.Embed(
+                    title="❌ Failed to Record Join",
+                    description=f"Could not record {user.mention}'s join",
+                    color=discord.Color.red()
+                )
+            
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Error recording user join: {str(e)}", ephemeral=True)
+    
     @app_commands.command(name="debug_staff_database", description="[ADMIN] Debug staff invites database with usernames")
     async def debug_staff_database(self, interaction: discord.Interaction):
         """Debug staff invites database with proper usernames"""

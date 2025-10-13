@@ -245,6 +245,32 @@ class CloudAPIServerDatabase:
             logger.error(f"❌ Error recording user join: {e}")
             return False
     
+    def record_user_join_manual(self, user_id: int, username: str, invite_code: str, 
+                               inviter_id: int, inviter_username: str, joined_at=None) -> bool:
+        """Manually record when a user joined through a specific invite"""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            
+            join_time = joined_at if joined_at else datetime.now()
+            
+            cursor.execute('''
+                INSERT OR REPLACE INTO invite_tracking 
+                (user_id, username, invite_code, inviter_id, inviter_username, 
+                 joined_at, invite_uses_before, invite_uses_after)
+                VALUES (?, ?, ?, ?, ?, ?, 0, 1)
+            ''', (user_id, username, invite_code, inviter_id, inviter_username, join_time))
+            
+            conn.commit()
+            conn.close()
+            
+            logger.info(f"✅ Manually recorded user join: {username} via invite {invite_code}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Error manually recording user join: {e}")
+            return False
+    
     def get_user_invite_info(self, user_id: int) -> Optional[Dict]:
         """Get invite information for a user"""
         try:
