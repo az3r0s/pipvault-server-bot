@@ -50,7 +50,7 @@ class EmbedManagement(commands.Cog):
         # Main welcome embed with better visual design
         embed = discord.Embed(
             title="🏆 Welcome to PipVault!",
-            description="```yaml\n🌟 Your Path to Prosperity Starts Here 🌟\n```\n\n**Hey there, future trading legend!** 🚀\n\nWelcome to our **elite trading community** where we turn market moves into profit opportunities!\n\n> *Join thousands of successful traders on their journey to financial freedom* 💎",
+            description="```yaml\n🌟 Your Path to Prosperity Starts Here 🌟\n```\n\n**Hey there, future trading legend!** 🚀\n\nWelcome to our **elite trading community** where we turn market moves into profit opportunities!\n\n> *Join dozens of successful traders on their journey to financial freedom* 💎",
             color=0x2E8B57  # Professional green
         )
 
