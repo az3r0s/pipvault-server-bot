@@ -2083,6 +2083,140 @@ class VIPUpgrade(commands.Cog):
         except Exception as e:
             await interaction.followup.send(f"❌ Test failed: {str(e)}", ephemeral=True)
     
+    @app_commands.command(name="create_missing_invites", description="[ADMIN] Create invites for staff members who don't have them")
+    async def create_missing_invites(self, interaction: discord.Interaction):
+        """Create invite codes for staff members who don't have active invites"""
+        if not (isinstance(interaction.user, discord.Member) and interaction.user.guild_permissions.administrator):
+            await interaction.response.send_message("❌ You need administrator permissions to use this command.", ephemeral=True)
+            return
+        
+        await interaction.response.defer(ephemeral=True)
+        
+        try:
+            results = []
+            staff_configs = self.bot.db.get_all_staff_configs()
+            
+            if not staff_configs:
+                await interaction.followup.send("❌ No staff configurations found in database.", ephemeral=True)
+                return
+            
+            # Find staff members without invite codes
+            missing_invites = []
+            for config in staff_configs:
+                invite_code = config.get('invite_code')
+                if not invite_code:
+                    missing_invites.append(config)
+            
+            if not missing_invites:
+                await interaction.followup.send("✅ All staff members already have invite codes!", ephemeral=True)
+                return
+            
+            results.append(f"🔄 **CREATING INVITES FOR {len(missing_invites)} STAFF MEMBERS**\n")
+            
+            # Find a suitable channel for creating invites (same logic as create_staff_invite)
+            invite_channel = None
+            for channel in interaction.guild.text_channels:
+                if channel.permissions_for(interaction.guild.me).create_instant_invite:
+                    invite_channel = channel
+                    break
+            
+            if not invite_channel:
+                await interaction.followup.send("❌ Cannot create invites - no suitable channel found", ephemeral=True)
+                return
+            
+            results.append(f"📍 Using channel: {invite_channel.mention}\n")
+            
+            successful_invites = []
+            failed_invites = []
+            
+            # Create invites for each staff member without one
+            for config in missing_invites:
+                staff_id = config['staff_id']
+                try:
+                    user = self.bot.get_user(staff_id)
+                    username = user.display_name if user else f"User {staff_id}"
+                    
+                    # Create invite using the exact same method as create_staff_invite
+                    invite = await invite_channel.create_invite(
+                        max_age=0,  # Never expires
+                        max_uses=0,  # Unlimited uses
+                        temporary=False,  # Permanent membership
+                        unique=True,  # Create unique invite
+                        reason=f"Staff invite for {username}"
+                    )
+                    
+                    # Update database with new invite code
+                    success = self.bot.db.update_staff_invite_code(staff_id, invite.code)
+                    
+                    if success:
+                        successful_invites.append({
+                            'username': username,
+                            'staff_id': staff_id,
+                            'invite_code': invite.code,
+                            'invite_url': f"https://discord.gg/{invite.code}"
+                        })
+                        results.append(f"  ✅ {username}: `{invite.code}` → https://discord.gg/{invite.code}")
+                    else:
+                        failed_invites.append(username)
+                        results.append(f"  ❌ {username}: Created invite but failed to save to database")
+                        
+                except Exception as e:
+                    failed_invites.append(username)
+                    results.append(f"  ❌ {username}: {str(e)}")
+            
+            # Test the created invites
+            if successful_invites:
+                results.append(f"\n🔗 **TESTING INVITE LINKS:**")
+                for invite_data in successful_invites:
+                    try:
+                        # Fetch the invite to verify it exists
+                        fetched_invite = await self.bot.fetch_invite(invite_data['invite_code'])
+                        results.append(f"  ✅ {invite_data['username']}: Link verified, {fetched_invite.uses or 0} uses")
+                    except discord.NotFound:
+                        results.append(f"  ❌ {invite_data['username']}: Link not found!")
+                    except Exception as e:
+                        results.append(f"  ⚠️ {invite_data['username']}: Test failed: {str(e)}")
+            
+            # Summary
+            results.append(f"\n📊 **CREATION SUMMARY:**")
+            results.append(f"  • Successfully created: {len(successful_invites)}")
+            results.append(f"  • Failed: {len(failed_invites)}")
+            
+            if successful_invites:
+                results.append(f"  • All new invites are permanent (never expire)")
+                results.append(f"  • All new invites have unlimited uses")
+            
+            # Send results
+            results_text = "\n".join(results)
+            
+            embed = discord.Embed(
+                title="🆕 Missing Invite Creation Results",
+                description=results_text,
+                color=discord.Color.green()
+            )
+            
+            await interaction.followup.send(embed=embed, ephemeral=True)
+            
+            # Send test links if successful
+            if successful_invites:
+                test_embed = discord.Embed(
+                    title="🧪 Test Your New Invites",
+                    description="Click these links to verify they work:",
+                    color=discord.Color.blue()
+                )
+                
+                for invite_data in successful_invites:
+                    test_embed.add_field(
+                        name=invite_data['username'],
+                        value=f"[Test Link](https://discord.gg/{invite_data['invite_code']})",
+                        inline=True
+                    )
+                
+                await interaction.followup.send(embed=test_embed, ephemeral=True)
+                
+        except Exception as e:
+            await interaction.followup.send(f"❌ Invite creation failed: {str(e)}", ephemeral=True)
+    
     @app_commands.command(name="cleanup_unauthorized_invites", description="[ADMIN] Remove invites not created by staff")
     async def cleanup_unauthorized_invites(self, interaction: discord.Interaction):
         """Clean up invites that weren't created by authorized staff"""
