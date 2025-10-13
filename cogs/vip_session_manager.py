@@ -136,6 +136,18 @@ class VIPSessionManager(commands.Cog):
             # Add user to thread
             await thread.add_user(interaction.user)
             
+            # Add VA (your Discord account) to thread so you can see and respond
+            if self.VA_DISCORD_USER_ID:
+                try:
+                    va_user = self.bot.get_user(self.VA_DISCORD_USER_ID)
+                    if va_user:
+                        await thread.add_user(va_user)
+                        logger.info(f"✅ Added VA {va_user.name} to thread {thread.id}")
+                    else:
+                        logger.warning(f"⚠️ Could not find VA user with ID {self.VA_DISCORD_USER_ID}")
+                except Exception as e:
+                    logger.error(f"❌ Failed to add VA to thread: {e}")
+            
             # Store session info
             self.active_threads[user_id] = thread
             self.thread_sessions[thread.id] = user_id
@@ -148,7 +160,7 @@ class VIPSessionManager(commands.Cog):
             )
             
             embed.add_field(
-                name="� Getting Started",
+                name="📋 Getting Started",
                 value=(
                     "• Send a message in this chat to begin your VIP upgrade consultation\n"
                     "• Our staff team will respond to you shortly\n"
@@ -266,26 +278,32 @@ class VIPSessionManager(commands.Cog):
                 natural_message
             )
             
-            if success:
-                # Add reaction to confirm message was sent
-                await message.add_reaction("📤")
-            else:
+            if not success:
                 await message.reply("❌ Failed to send message to VA. Please try again.")
     
     async def handle_va_reply(self, user_id: str, message_content: str):
         """Handle VA reply from Telegram - send as your actual Discord account"""
         try:
+            logger.info(f"🔍 DEBUG: Handling VA reply for user {user_id}: {message_content[:50]}...")
+            logger.info(f"🔍 DEBUG: Active threads: {list(self.active_threads.keys())}")
+            
             if user_id not in self.active_threads:
                 logger.warning(f"No active thread found for user {user_id}")
                 return False
             
             thread = self.active_threads[user_id]
+            logger.info(f"🔍 DEBUG: Found thread {thread.id} for user {user_id}")
             
             # Option 1: Use webhook on parent channel to send as your Discord account
             if self.VA_DISCORD_USER_ID:
+                logger.info(f"🔍 DEBUG: VA_DISCORD_USER_ID is {self.VA_DISCORD_USER_ID}")
                 va_user = self.bot.get_user(self.VA_DISCORD_USER_ID)
+                logger.info(f"🔍 DEBUG: Found VA user: {va_user}")
+                logger.info(f"🔍 DEBUG: Thread parent: {thread.parent}")
+                
                 if va_user and thread.parent:
                     try:
+                        logger.info(f"🔍 DEBUG: Attempting webhook approach...")
                         # Get or create webhook on parent channel
                         webhooks = await thread.parent.webhooks()
                         webhook = None
@@ -297,9 +315,13 @@ class VIPSessionManager(commands.Cog):
                                 break
                         
                         if not webhook:
+                            logger.info(f"🔍 DEBUG: Creating new webhook...")
                             webhook = await thread.parent.create_webhook(name="VIP_VA_Webhook")
+                        else:
+                            logger.info(f"🔍 DEBUG: Using existing webhook...")
                         
                         # Send message as your Discord account in the thread
+                        logger.info(f"🔍 DEBUG: Sending webhook message to thread {thread.id}...")
                         await webhook.send(
                             content=message_content,
                             username=va_user.display_name,
@@ -310,15 +332,17 @@ class VIPSessionManager(commands.Cog):
                         logger.info(f"✅ Sent VA reply as {va_user.display_name} to thread {thread.id}")
                         return True
                     except Exception as webhook_error:
-                        logger.warning(f"Webhook failed, falling back to embed: {webhook_error}")
+                        logger.error(f"❌ Webhook failed, falling back to embed: {webhook_error}")
+                else:
+                    logger.warning(f"⚠️ VA user or thread parent not found - va_user: {va_user}, thread.parent: {thread.parent}")
             
             # Option 2: Fallback to bot message with clear VA attribution
+            logger.info(f"🔍 DEBUG: Using fallback embed method...")
             embed = discord.Embed(
                 description=message_content,
-                color=discord.Color.blue(),
-                timestamp=datetime.now()
+                color=discord.Color.blue()
             )
-            embed.set_author(name="VA Response", icon_url=self.bot.user.display_avatar.url)
+            embed.set_author(name="Staff Response", icon_url=self.bot.user.display_avatar.url)
             
             await thread.send(embed=embed)
             logger.info(f"✅ Sent VA reply as embed to thread {thread.id}")
