@@ -1340,26 +1340,89 @@ class VIPUpgrade(commands.Cog):
             logger.error(f"❌ Error adding staff invite: {e}")
             await interaction.response.send_message(f"❌ Error: {str(e)}", ephemeral=True)
     
-    @app_commands.command(name="debug_staff_database", description="[ADMIN] Debug staff invites database")
+    @app_commands.command(name="debug_staff_database", description="[ADMIN] Debug staff invites database with usernames")
     async def debug_staff_database(self, interaction: discord.Interaction):
-        """Debug staff invites database"""
+        """Debug staff invites database with proper usernames"""
         if not (isinstance(interaction.user, discord.Member) and interaction.user.guild_permissions.administrator):
             await interaction.response.send_message("❌ You need administrator permissions to use this command.", ephemeral=True)
             return
         
         try:
-            debug_info = self.bot.db.debug_staff_invites_table()
+            # Get all staff configurations instead of using the basic debug method
+            staff_configs = self.bot.db.get_all_staff_configs()
+            
+            if not staff_configs:
+                await interaction.response.send_message("❌ No staff configurations found in database.", ephemeral=True)
+                return
+            
+            debug_lines = []
+            debug_lines.append("📊 **Staff Invites Table Contents:**")
+            
+            for config in staff_configs:
+                staff_id = config['staff_id']
+                invite_code = config.get('invite_code', 'None')
+                
+                # Fetch the actual Discord user
+                try:
+                    user = self.bot.get_user(staff_id)
+                    username = user.display_name if user else f"User {staff_id}"
+                    
+                    # Also try to get from guild members if bot.get_user fails
+                    if not user and interaction.guild:
+                        member = interaction.guild.get_member(staff_id)
+                        username = member.display_name if member else f"Unknown User {staff_id}"
+                        
+                except Exception:
+                    username = f"Error fetching user {staff_id}"
+                
+                debug_lines.append(f"• Staff ID: {staff_id}, Username: {username}, Invite: {invite_code}")
+            
+            # Add additional database statistics
+            debug_lines.append(f"\n📈 **Database Statistics:**")
+            debug_lines.append(f"• Total staff entries: {len(staff_configs)}")
+            
+            staff_with_invites = sum(1 for config in staff_configs if config.get('invite_code'))
+            debug_lines.append(f"• Staff with invite codes: {staff_with_invites}/{len(staff_configs)}")
+            
+            # Check for potential issues
+            debug_lines.append(f"\n⚠️ **Potential Issues:**")
+            issues_found = []
+            
+            for config in staff_configs:
+                staff_id = config['staff_id']
+                invite_code = config.get('invite_code')
+                
+                # Check if user exists
+                user = self.bot.get_user(staff_id)
+                if not user:
+                    member = interaction.guild.get_member(staff_id) if interaction.guild else None
+                    if not member:
+                        issues_found.append(f"Staff ID {staff_id} not found in Discord")
+                
+                # Check if invite code exists but user doesn't
+                if invite_code and not user:
+                    issues_found.append(f"Invite {invite_code} assigned to missing user {staff_id}")
+            
+            if issues_found:
+                for issue in issues_found:
+                    debug_lines.append(f"  • {issue}")
+            else:
+                debug_lines.append("  • No issues detected")
+            
+            debug_info = "\n".join(debug_lines)
             
             embed = discord.Embed(
-                title="🔍 Database Debug Info",
+                title="🔍 Enhanced Database Debug Info",
                 description=debug_info,
                 color=discord.Color.blue()
             )
             
+            embed.set_footer(text="This debug info includes resolved Discord usernames")
+            
             await interaction.response.send_message(embed=embed, ephemeral=True)
             
         except Exception as e:
-            await interaction.response.send_message(f"❌ Error: {str(e)}", ephemeral=True)
+            await interaction.response.send_message(f"❌ Debug failed: {str(e)}", ephemeral=True)
     
     @app_commands.command(name="diagnose_invites", description="[ADMIN] Comprehensive invite system diagnosis")
     async def diagnose_invites(self, interaction: discord.Interaction):
