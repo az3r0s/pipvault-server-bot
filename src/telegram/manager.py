@@ -228,27 +228,10 @@ class TelegramAccountManager:
                     sender = await event.get_sender()
                     message_text = event.message.message or ""
                     
-                    # Handle media messages (video, voice, etc.)
-                    if event.message.media and not message_text:
-                        if hasattr(event.message.media, 'voice'):
-                            message_text = "🎤 Voice message"
-                        elif hasattr(event.message.media, 'video'):
-                            message_text = "🎥 Video message"
-                        elif hasattr(event.message.media, 'photo'):
-                            message_text = "📷 Photo"
-                        elif hasattr(event.message.media, 'document'):
-                            message_text = "📎 File attachment"
-                        else:
-                            message_text = "📱 Media message"
-                    
-                    # Skip empty messages (shouldn't happen now)
-                    if not message_text.strip():
-                        logger.warning(f"⚠️ Skipping empty message from {sender.first_name}")
-                        return
-                    
                     logger.info(f"📨 Received message from {sender.first_name} for user {account.current_user_id}")
                     
                     # Forward to Discord via callback (will be set up later)
+                    # Pass the original Telegram message for media handling
                     await self._forward_to_discord(account.current_user_id, sender, message_text, event.message)
                     
                     account.last_activity = datetime.now()
@@ -273,7 +256,7 @@ class TelegramAccountManager:
                 
                 # Call Discord callback if set
                 if hasattr(self, 'discord_callback') and self.discord_callback:
-                    await self.discord_callback(discord_user_id, message_text)
+                    await self.discord_callback(discord_user_id, message_text, telegram_message)
                 else:
                     logger.warning("No Discord callback set for forwarding messages")
             else:

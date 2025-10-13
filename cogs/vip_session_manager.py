@@ -392,7 +392,7 @@ class VIPSessionManager(commands.Cog):
             if not success:
                 await message.reply("❌ Failed to send message to VA. Please try again.")
     
-    async def handle_va_reply(self, user_id: str, message_content: str):
+    async def handle_va_reply(self, user_id: str, message_content: str, telegram_message=None):
         """Handle VA reply from Telegram - send as your actual Discord account"""
         try:
             logger.info(f"🔍 DEBUG: Handling VA reply for user {user_id}: {message_content[:50]}...")
@@ -404,6 +404,63 @@ class VIPSessionManager(commands.Cog):
             
             thread = self.active_threads[user_id]
             logger.info(f"🔍 DEBUG: Found thread {thread.id} for user {user_id}")
+           
+            # Handle media messages (video, voice, etc.)
+            if telegram_message and telegram_message.media:
+                try:
+                    logger.info(f"🔍 DEBUG: Processing media message...")
+                    
+                    # Download media to temporary file
+                    import tempfile
+                    import os
+                    
+                    with tempfile.TemporaryDirectory() as temp_dir:
+                        file_path = await telegram_message.download_media(temp_dir)
+                        
+                        if file_path:
+                            logger.info(f"🔍 DEBUG: Downloaded media to {file_path}")
+                            
+                            # Send media file to Discord
+                            with open(file_path, 'rb') as f:
+                                file_name = os.path.basename(file_path)
+                                
+                                # Get referring staff info for referral replacements (if text content exists)
+                                referring_staff = await self._get_referring_staff(int(user_id))
+                                processed_message = self._replace_referral_info(message_content, referring_staff) if message_content else ""
+                                
+                                discord_file = discord.File(f, filename=file_name)
+                                
+                                # Send via personal Discord bot first
+                                try:
+                                    from src.personal_discord import get_personal_bot
+                                    personal_bot = get_personal_bot()
+                                    
+                                    if personal_bot and personal_bot.running:
+                                        logger.info(f"🔍 DEBUG: Sending media via personal Discord bot...")
+                                        # Personal bot doesn't support file uploads, fallback to regular bot
+                                        raise Exception("Personal bot doesn't support media uploads")
+                                    else:
+                                        raise Exception("Personal bot not available")
+                                        
+                                except Exception:
+                                    # Fallback to regular bot for media
+                                    logger.info(f"🔍 DEBUG: Using bot for media upload...")
+                                    await thread.send(content=processed_message if processed_message else None, file=discord_file)
+                                    logger.info(f"✅ Sent media to thread {thread.id}")
+                            
+                            return True
+                        else:
+                            logger.error("❌ Failed to download media file")
+                            
+                except Exception as media_error:
+                    logger.error(f"❌ Error handling media: {media_error}")
+                    # Continue with text-only fallback
+            
+            # Handle text messages (existing logic)
+            # Skip if no text content (media was already handled above)
+            if not message_content or not message_content.strip():
+                logger.warning(f"⚠️ No text content to send for user {user_id}")
+                return True  # Media was already sent if applicable
             
             # Get referring staff info for this user and replace referral links/codes
             referring_staff = await self._get_referring_staff(int(user_id))
