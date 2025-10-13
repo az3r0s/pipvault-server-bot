@@ -2173,9 +2173,52 @@ class VIPUpgrade(commands.Cog):
                             'username': username,
                             'staff_id': staff_id,
                             'invite_code': invite.code,
-                            'invite_url': f"https://discord.gg/{invite.code}"
+                            'invite_url': f"https://discord.gg/{invite.code}",
+                            'user': user
                         })
                         results.append(f"  ✅ {username}: `{invite.code}` → https://discord.gg/{invite.code}")
+                        
+                        # Send DM to staff member with their invite link
+                        if user:
+                            try:
+                                dm_embed = discord.Embed(
+                                    title="🎉 Your Personal Invite Link is Ready!",
+                                    description="You now have a permanent invite link that will track VIP conversions to you.",
+                                    color=discord.Color.blue()
+                                )
+                                dm_embed.add_field(
+                                    name="🔗 Your Invite Link",
+                                    value=f"[{invite.url}]({invite.url})",
+                                    inline=False
+                                )
+                                dm_embed.add_field(
+                                    name="📊 How It Works",
+                                    value=(
+                                        "• Share this link to invite new members\n"
+                                        "• When they upgrade to VIP, you get credit\n"
+                                        "• Track your stats with `/list_staff_invites`\n"
+                                        "• All VIP upgrades will use your referral links"
+                                    ),
+                                    inline=False
+                                )
+                                dm_embed.add_field(
+                                    name="⚙️ Important Notes",
+                                    value=(
+                                        "• This link never expires\n"
+                                        "• It has unlimited uses\n"
+                                        "• Keep it safe and don't share with other staff"
+                                    ),
+                                    inline=False
+                                )
+                                
+                                await user.send(embed=dm_embed)
+                                results.append(f"    📧 DM sent to {username}")
+                                
+                            except discord.Forbidden:
+                                results.append(f"    ⚠️ Could not send DM to {username} (DMs disabled)")
+                            except Exception as e:
+                                results.append(f"    ⚠️ DM failed for {username}: {str(e)}")
+                        
                     else:
                         failed_invites.append(username)
                         results.append(f"  ❌ {username}: Created invite but failed to save to database")
