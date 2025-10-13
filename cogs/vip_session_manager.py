@@ -243,28 +243,47 @@ class VIPSessionManager(commands.Cog):
     async def _get_referring_staff(self, user_id: int) -> Optional[Dict]:
         """Get the staff member who referred this user (existing functionality)"""
         try:
+            logger.info(f"🔍 DEBUG: Looking up referring staff for user {user_id}")
+            
             # Get user's invite information
-            invite_info = self.bot.db.get_user_invite_info(user_id)
+            try:
+                invite_info = self.bot.db.get_user_invite_info(user_id)
+                logger.info(f"🔍 DEBUG: Invite info for user {user_id}: {invite_info}")
+            except Exception as db_error:
+                logger.error(f"Database error getting invite info for user {user_id}: {db_error}")
+                return None
+                
             if not invite_info:
                 logger.info(f"No invite info found for user {user_id}")
                 return None
             
             # Get staff configuration based on the invite
-            staff_config = self.bot.db.get_staff_config_by_invite(invite_info['invite_code'])
+            try:
+                staff_config = self.bot.db.get_staff_config_by_invite(invite_info['invite_code'])
+                logger.info(f"🔍 DEBUG: Staff config for invite {invite_info['invite_code']}: {staff_config}")
+            except Exception as db_error:
+                logger.error(f"Database error getting staff config for invite {invite_info['invite_code']}: {db_error}")
+                return None
+                
             if not staff_config:
                 logger.info(f"No staff config found for invite {invite_info['invite_code']}")
                 return None
             
+            # Debug the staff_config structure
+            logger.info(f"🔍 DEBUG: Staff config keys: {list(staff_config.keys()) if isinstance(staff_config, dict) else 'Not a dict'}")
+            
             return {
-                'staff_id': staff_config['staff_id'],
+                'staff_id': staff_config.get('staff_id') or staff_config.get('staff_user_id'),
                 'staff_name': staff_config.get('staff_name', 'Unknown'),
                 'staff_username': staff_config.get('staff_username', 'Unknown'),
-                'vantage_referral_link': staff_config.get('vantage_referral_link', ''),
-                'vantage_referral_code': self._extract_referral_code(staff_config.get('vantage_referral_link', ''))
+                'vantage_referral_link': staff_config.get('ib_link', ''),  # Use ib_link from database
+                'vantage_referral_code': self._extract_referral_code(staff_config.get('ib_link', ''))
             }
             
         except Exception as e:
             logger.error(f"Error getting referring staff for user {user_id}: {e}")
+            import traceback
+            logger.error(f"Full traceback: {traceback.format_exc()}")
             return None
     
     def _extract_referral_code(self, referral_link: str) -> str:

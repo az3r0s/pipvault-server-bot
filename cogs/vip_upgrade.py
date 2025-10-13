@@ -1424,6 +1424,102 @@ class VIPUpgrade(commands.Cog):
         except Exception as e:
             await interaction.response.send_message(f"❌ Debug failed: {str(e)}", ephemeral=True)
     
+    @app_commands.command(name="debug_user_invite", description="[ADMIN] Debug invite tracking for a specific user")
+    @app_commands.describe(user="The user to debug invite tracking for")
+    async def debug_user_invite(self, interaction: discord.Interaction, user: discord.Member):
+        """Debug invite tracking for a specific user"""
+        if not (isinstance(interaction.user, discord.Member) and interaction.user.guild_permissions.administrator):
+            await interaction.response.send_message("❌ You need administrator permissions to use this command.", ephemeral=True)
+            return
+        
+        try:
+            debug_lines = []
+            debug_lines.append(f"🔍 **INVITE TRACKING DEBUG FOR {user.display_name}**\n")
+            debug_lines.append(f"• User ID: {user.id}")
+            debug_lines.append(f"• Username: {user.name}")
+            debug_lines.append(f"• Display Name: {user.display_name}")
+            debug_lines.append(f"• Joined: {user.joined_at}\n")
+            
+            # 1. Check database for user invite info
+            debug_lines.append("💾 **DATABASE LOOKUP:**")
+            try:
+                invite_info = self.bot.db.get_user_invite_info(user.id)
+                if invite_info:
+                    debug_lines.append(f"✅ Found invite info: {invite_info}")
+                    invite_code = invite_info.get('invite_code', 'Unknown')
+                    
+                    # 2. Check staff config for this invite
+                    debug_lines.append(f"\n👥 **STAFF LOOKUP FOR INVITE {invite_code}:**")
+                    try:
+                        staff_config = self.bot.db.get_staff_config_by_invite(invite_code)
+                        if staff_config:
+                            debug_lines.append(f"✅ Found staff config: {staff_config}")
+                        else:
+                            debug_lines.append(f"❌ No staff config found for invite {invite_code}")
+                    except Exception as e:
+                        debug_lines.append(f"❌ Error looking up staff config: {str(e)}")
+                        
+                else:
+                    debug_lines.append("❌ No invite info found in database")
+                    
+            except Exception as e:
+                debug_lines.append(f"❌ Database error: {str(e)}")
+            
+            # 3. Check all staff configs to see what invites exist
+            debug_lines.append(f"\n📋 **ALL STAFF INVITES:**")
+            try:
+                all_staff = self.bot.db.get_all_staff_configs()
+                for staff in all_staff:
+                    staff_id = staff.get('staff_id', 'Unknown')
+                    invite_code = staff.get('invite_code', 'None')
+                    try:
+                        staff_user = self.bot.get_user(staff_id)
+                        staff_name = staff_user.display_name if staff_user else f"User {staff_id}"
+                    except:
+                        staff_name = f"User {staff_id}"
+                    debug_lines.append(f"  • {staff_name}: {invite_code}")
+            except Exception as e:
+                debug_lines.append(f"❌ Error getting staff configs: {str(e)}")
+            
+            # 4. Test the VIP session manager lookup
+            debug_lines.append(f"\n🔄 **VIP SESSION MANAGER TEST:**")
+            try:
+                vip_cog = self.bot.get_cog('VIPSessionManager')
+                if vip_cog:
+                    referring_staff = await vip_cog._get_referring_staff(user.id)
+                    if referring_staff:
+                        debug_lines.append(f"✅ VIP manager found referring staff: {referring_staff}")
+                    else:
+                        debug_lines.append("❌ VIP manager found no referring staff")
+                else:
+                    debug_lines.append("❌ VIP Session Manager cog not found")
+            except Exception as e:
+                debug_lines.append(f"❌ VIP manager error: {str(e)}")
+            
+            # 5. Recommendations
+            debug_lines.append(f"\n💡 **RECOMMENDATIONS:**")
+            if not invite_info:
+                debug_lines.append("• User join was not recorded - check invite tracker")
+                debug_lines.append("• Try manually recording the join with `/manually_add_staff_invite`")
+            elif not staff_config:
+                debug_lines.append("• Invite code exists but no staff config - database inconsistency")
+                debug_lines.append("• Check if invite code was updated but database not synced")
+            else:
+                debug_lines.append("• Everything looks correct - referral replacement should work")
+            
+            debug_text = "\n".join(debug_lines)
+            
+            embed = discord.Embed(
+                title="🔍 User Invite Tracking Debug",
+                description=debug_text,
+                color=discord.Color.orange()
+            )
+            
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            
+        except Exception as e:
+            await interaction.response.send_message(f"❌ User debug failed: {str(e)}", ephemeral=True)
+    
     @app_commands.command(name="diagnose_invites", description="[ADMIN] Comprehensive invite system diagnosis")
     async def diagnose_invites(self, interaction: discord.Interaction):
         """Comprehensive invite system diagnosis"""
