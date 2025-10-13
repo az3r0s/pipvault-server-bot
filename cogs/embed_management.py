@@ -58,76 +58,96 @@ class EmbedManagement(commands.Cog):
         
         embed.add_field(
             name="🎯 **Quick Start Guide**",
-            value="""```
-1️⃣ Read our rules
-2️⃣ Check announcements  
-3️⃣ Join the conversation
-```
-📜 **Rules:** <#1401614582845280316>
-📢 **Updates:** <#1401614583801712732>
-💬 **Chat:** Jump into any channel!""",
-            inline=True
+            value="""**Step 1:** Read our comprehensive rules
+📜 **Rules Channel:** <#1401614582845280316>
+
+**Step 2:** Stay updated with announcements  
+📢 **Updates Channel:** <#1401614583801712732>
+
+**Step 3:** Join the conversation
+💬 **Community Channels:** Jump into any trading discussion!
+
+**💡 Pro Tip:** Take your time to explore and get familiar with our community culture.""",
+            inline=False
         )
 
         embed.add_field(
             name="💎 **Premium VIP Access**",
-            value="""```
-✨ Premium Gold Signals
-📊 Advanced Analysis
-🎯 High-Accuracy Setups
-🤖 MT5 Auto-Trading
-```
-**Trade with our Vantage IB partner for full VIP access!**
+            value="""**🌟 What You Get:**
+• ✨ Premium Gold signals with high accuracy
+• 📊 Advanced market analysis and insights
+• 🎯 Professional trading setups and strategies
+• 🤖 MT5 auto-trading integration *(Beta)*
 
-*No monthly fees - just active trading*""",
-            inline=True
+**💰 How to Access:**
+Trade with our **Vantage IB partner** for full VIP access!
+
+**🎁 The Best Part:** No monthly fees — just active trading
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━""",
+            inline=False
         )
 
         embed.add_field(
             name="🆓 **Free Community Benefits**",
-            value="""```
-📈 Daily Market Insights
-🎓 Educational Content
-💡 Trading Tips & Tricks
-🤝 Active Community
-```
-**Available to all members immediately!**
+            value="""**Available to ALL Members Immediately:**
 
-*Perfect for learning and growing*""",
-            inline=True
-        )
+**📈 Market Education:**
+• Daily market insights and analysis
+• Educational content and trading guides
+• Expert trading tips and strategies
 
-        # Full-width feature showcase
-        embed.add_field(
-            name="🚀 **Advanced Features (Beta Testing)**",
-            value="""**🤖 Discord Bot Integration:** *(Limited Beta Access)*
-• `/mt5-stats` - View your trading performance
-• `/mt5-accounts` - Manage multiple MT5 accounts  
-• `/mt5-leaderboard` - See community rankings
-• `/refresh-mt5-stats` - Update your data
+**🤝 Community Support:**
+• Active trader discussions
+• Peer learning and support
+• Question and answer sessions
 
-**📊 Advanced Features:**
-• Automated copy trading • Performance tracking • Risk management • Multi-account support
+**💡 Perfect For:** Learning, growing, and building your trading foundation
 
-⚠️ **Beta Status:** These features are currently available to selected beta testers only. Full release coming soon!
-
-**Contact our staff about beta access and MT5 account linking!** 🔗""",
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━""",
             inline=False
         )
 
-        # Call to action with visual separator
+        # Advanced features showcase
+        embed.add_field(
+            name="🚀 **Advanced Features (Beta Testing)**",
+            value="""**🤖 Discord Bot Integration:** *(Limited Beta Access)*
+
+**📊 Available Commands:**
+• `/mt5-stats` - View your complete trading performance
+• `/mt5-accounts` - Manage multiple MT5 accounts  
+• `/mt5-leaderboard` - See community rankings
+• `/refresh-mt5-stats` - Update your cached data
+
+**⚙️ Automation Features:**
+• Automated copy trading system
+• Real-time performance tracking
+• Advanced risk management
+• Multi-account support
+
+**⚠️ Beta Status:** These features are currently available to selected beta testers only. Full public release coming soon!
+
+**Want early access?** Contact our staff about beta testing and MT5 account linking! 🔗
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━""",
+            inline=False
+        )
+
+        # Call to action with enhanced styling
         embed.add_field(
             name="⭐ **Ready to Start Your Success Story?**",
-            value="""```diff
-+ Read the rules and dive in!
-+ Ask questions - our community helps each other
-+ Contact staff about VIP access through Vantage
-+ Start small, think big, trade smart! 
-```
+            value="""**🎯 Your Next Steps:**
 
-**Welcome to the PipVault family!** 🏆✨
+**Step 1:** Read the rules and get familiar
+**Step 2:** Ask questions — our community helps each other  
+**Step 3:** Contact staff about VIP access through Vantage
+**Step 4:** Start small, think big, trade smart!
 
-*Where disciplined trading meets prosperity* 🎯""",
+**🏆 Welcome to the PipVault family!** ✨
+
+*Where disciplined trading meets prosperity* 🎯
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━""",
             inline=False
         )
 
@@ -160,98 +180,176 @@ class EmbedManagement(commands.Cog):
         # Main rules header
         embed1 = discord.Embed(
             title="📋 PipVault — Server Rules",
-            description="*Your Path to Prosperity*\n\n*Building wealth through disciplined trading and respectful community*\n\n**Please read and follow all rules to maintain our professional trading environment** 📈",
+            description="**Your Path to Prosperity**\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n*Building wealth through disciplined trading and respectful community*\n\n**Please read and follow all rules to maintain our professional trading environment** 📈\n\n",
             color=0xff0000
         )
 
         embed1.add_field(
             name="**1️⃣ Respect & Professional Conduct**",
-            value="""• Treat all members with respect and professionalism
-• No harassment, bullying, or personal attacks
-• Keep discussions trading-focused and constructive
-• Maintain a positive, supportive community atmosphere""",
+            value="""**Foundation of Our Community:**
+
+• **Treat all members** with respect and professionalism
+• **Zero tolerance** for harassment, bullying, or personal attacks
+• **Keep discussions** trading-focused and constructive
+• **Maintain positive atmosphere** — support each other's growth
+
+**Why This Matters:** Professional conduct creates an environment where everyone can learn and succeed.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━""",
             inline=False
         )
 
         embed1.add_field(
             name="**2️⃣ Content & Communication Guidelines**",
-            value="""• Keep content relevant to trading, finance, and market analysis
-• No spam, excessive messaging, or ALL CAPS
-• No NSFW, inappropriate, or illegal content
-• Use proper channels for their intended purposes""",
+            value="""**Keep Content Relevant:**
+
+• **Focus areas:** Trading, finance, and market analysis
+• **Avoid:** Spam, excessive messaging, or ALL CAPS writing
+• **Prohibited:** NSFW, inappropriate, or illegal content
+• **Channel usage:** Use proper channels for their intended purposes
+
+**Communication Quality:** Clear, respectful, and valuable contributions help everyone learn better.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━""",
             inline=False
         )
 
         # Content and trading rules
         embed2 = discord.Embed(
             title="📊 Trading & Content Guidelines",
+            description="**Essential guidelines for safe and responsible trading discussions:**\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
             color=0xff0000
         )
 
         embed2.add_field(
             name="**3️⃣ Trading & Risk Management**",
-            value="""• 🚨 **All content is for educational and informational purposes only**
-• **Not financial advice** — we do not provide investment recommendations
-• **High risk warning:** CFDs and leveraged trading carry substantial risk of loss
+            value="""**🚨 CRITICAL DISCLAIMER:**
+• **Educational purpose only** — All content is for learning and information
+• **Not financial advice** — We do not provide investment recommendations
+• **High risk warning** — CFDs and leveraged trading carry substantial risk of loss
+
+**Your Responsibilities:**
 • Always seek independent financial advice before trading
-• No sharing signals from other paid services or groups
-• Always DYOR (Do Your Own Research) and understand risks""",
+• Never share signals from other paid services or groups
+• Always DYOR (Do Your Own Research) and understand all risks
+• Only trade with money you can afford to lose completely
+
+**Why This Matters:** Your financial safety is our top priority.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━""",
             inline=False
         )
 
         embed2.add_field(
             name="**4️⃣ Promotion & External Content**",
-            value="""• No promotion of competing trading services or groups
-• No affiliate links, referral codes, or unsolicited sales
-• No unauthorized DMs for promotions or sales
-• Ask staff permission before sharing external trading resources""",
+            value="""**Prohibited Activities:**
+
+• **No promotion** of competing trading services or groups
+• **No affiliate links** or referral codes without permission
+• **No unsolicited DMs** for promotions or sales
+• **No spam** of external trading resources
+
+**The Right Way:**
+• Ask staff permission before sharing external trading resources
+• Focus on educational value, not promotion
+• Contribute to discussions rather than just promoting
+
+**Community First:** We prioritize member value over commercial interests.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━""",
             inline=False
         )
 
         # VIP and bot usage rules
         embed3 = discord.Embed(
             title="🤖 VIP Access & Bot Guidelines",
+            description="**Guidelines for VIP content and Discord bot usage:**\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
             color=0xff0000
         )
 
         embed3.add_field(
             name="**5️⃣ VIP Access & Channel Integrity**",
-            value="""• VIP content is exclusive — sharing outside the server is prohibited
+            value="""**VIP Content Protection:**
+
+• **Exclusive access** — VIP content sharing outside the server is strictly prohibited
+• **Respect boundaries** — VIP channels are for VIP members only
+• **No begging** for upgrades, signals, or special access
+• **Value the privilege** — VIP access is earned through our partnership model
+
+**Bot Command Usage:**
 • Use `/mt5-stats` and bot commands appropriately
-• No begging for upgrades, signals, or special access
-• Respect MT5 account linking policies (admin-managed for security)""",
+• Respect rate limits and don't spam commands
+• Report any issues to staff promptly
+
+**Why This Matters:** Protecting VIP content ensures continued high-quality service.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━""",
             inline=False
         )
 
         embed3.add_field(
             name="**6️⃣ Multi-Account & Bot Usage**",
-            value="""• MT5 account linking is managed by administrators for security
+            value="""**Account Management Security:**
+
+• **Admin-only linking** — MT5 account linking is managed by administrators for security
+• **One person, multiple accounts** — Demo and live accounts supported per user
+• **No stat manipulation** — Any attempts to manipulate stats or leaderboard rankings will result in permanent ban
+
+**Responsible Usage:**
 • Use Discord bot commands responsibly and in appropriate channels
-• No attempts to manipulate stats or leaderboard rankings
-• Report any technical issues to staff promptly""",
+• Don't abuse the system or try to circumvent security measures
+• Report technical issues to staff promptly for quick resolution
+
+**Security First:** Our admin-managed approach ensures your account safety.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━""",
             inline=False
         )
 
         # Enforcement embed
         embed4 = discord.Embed(
             title="⚠️ Enforcement & Contact Information",
+            description="**Fair and consistent rule enforcement for all community members:**\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
             color=0xff0000
         )
 
         embed4.add_field(
-            name="**⚠️ Enforcement & Consequences**",
-            value="""• **1st Violation** — Warning + education about rules
-• **2nd Violation** — Temporary mute (24-48 hours)
+            name="**⚠️ Progressive Enforcement System**",
+            value="""**Our Approach:** Education first, enforcement when necessary
+
+**Violation Levels:**
+• **1st Violation** — Warning + education about rules
+• **2nd Violation** — Temporary mute (24-48 hours)  
 • **3rd Violation** — Temporary ban (3-7 days)
 • **Severe violations** — Immediate permanent ban
 
-*Violations include: sharing VIP content, promoting competitors, harassment, or circumventing security measures*""",
+**What Constitutes Violations:**
+*Sharing VIP content outside server, promoting competitors, harassment, circumventing security measures, or repeated rule breaking*
+
+**Our Goal:** Help members understand and follow rules rather than just punish.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━""",
             inline=False
         )
 
         embed4.add_field(
-            name="**📞 Contact Staff**",
-            value="Questions about rules? Need help with MT5 linking? Contact our staff team.\n**Staff decisions are final in all rule interpretations and disputes.**",
+            name="**📞 Staff Support & Contact**",
+            value="""**Need Help?**
+
+**Questions about:**
+• Rule interpretations or clarifications
+• MT5 account linking and setup
+• VIP access and requirements
+• Technical issues or bot problems
+
+**How to Contact:**
+• DM any staff member directly
+• Ask in appropriate channels
+• Open a support ticket if available
+
+**Important:** Staff decisions are final in all rule interpretations and disputes. We aim to be fair and consistent in all decisions.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━""",
             inline=False
         )
 
