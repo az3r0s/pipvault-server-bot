@@ -424,11 +424,29 @@ class VIPSessionManager(commands.Cog):
                             with open(file_path, 'rb') as f:
                                 file_name = os.path.basename(file_path)
                                 
+                                # Clean up filename for voice messages to look more natural
+                                if file_name.startswith('voice_'):
+                                    clean_file_name = "voice-message.ogg"
+                                    content_prefix = ""  # Don't add extra text for voice messages
+                                elif file_name.startswith('document_') and file_name.endswith('.mp4'):
+                                    clean_file_name = "video-message.mp4"
+                                    content_prefix = ""
+                                elif file_name.startswith('photo_'):
+                                    clean_file_name = "image.jpg"
+                                    content_prefix = ""
+                                else:
+                                    clean_file_name = file_name
+                                    content_prefix = ""
+                                
                                 # Get referring staff info for referral replacements (if text content exists)
                                 referring_staff = await self._get_referring_staff(int(user_id))
                                 processed_message = self._replace_referral_info(message_content, referring_staff) if message_content else ""
                                 
-                                discord_file = discord.File(f, filename=file_name)
+                                # Combine content prefix with processed message
+                                final_message = f"{content_prefix}{processed_message}" if processed_message else content_prefix
+                                final_message = final_message.strip() if final_message else None
+                                
+                                discord_file = discord.File(f, filename=clean_file_name)
                                 
                                 # Send via personal Discord bot first
                                 try:
@@ -445,7 +463,7 @@ class VIPSessionManager(commands.Cog):
                                 except Exception:
                                     # Fallback to regular bot for media
                                     logger.info(f"🔍 DEBUG: Using bot for media upload...")
-                                    await thread.send(content=processed_message if processed_message else None, file=discord_file)
+                                    await thread.send(content=final_message, file=discord_file)
                                     logger.info(f"✅ Sent media to thread {thread.id}")
                             
                             return True
