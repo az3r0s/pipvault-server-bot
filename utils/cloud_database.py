@@ -678,10 +678,22 @@ class CloudAPIServerDatabase:
             conn = sqlite3.connect(self.db_path, timeout=10.0)
             cursor = conn.cursor()
             
-            # Get total invites and VIP conversions
+            # First get the staff member's invite code
             cursor.execute('''
-                SELECT COUNT(*) FROM invite_tracking WHERE inviter_id = ?
+                SELECT invite_code FROM staff_invites WHERE staff_id = ?
             ''', (staff_id,))
+            
+            invite_row = cursor.fetchone()
+            if not invite_row or not invite_row[0]:
+                conn.close()
+                return {'total_invites': 0, 'vip_conversions': 0, 'pending_requests': 0, 'conversion_rate': 0}
+            
+            invite_code = invite_row[0]
+            
+            # Get total invites using invite code instead of inviter_id
+            cursor.execute('''
+                SELECT COUNT(*) FROM invite_tracking WHERE invite_code = ?
+            ''', (invite_code,))
             total_invites = cursor.fetchone()[0]
             
             cursor.execute('''

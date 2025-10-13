@@ -273,11 +273,11 @@ class VIPSessionManager(commands.Cog):
             logger.info(f"🔍 DEBUG: Staff config keys: {list(staff_config.keys()) if isinstance(staff_config, dict) else 'Not a dict'}")
             
             return {
-                'staff_id': staff_config.get('staff_id') or staff_config.get('staff_user_id'),
-                'staff_name': staff_config.get('staff_name', 'Unknown'),
-                'staff_username': staff_config.get('staff_username', 'Unknown'),
-                'vantage_referral_link': staff_config.get('ib_link', ''),  # Use ib_link from database
-                'vantage_referral_code': self._extract_referral_code(staff_config.get('ib_link', ''))
+                'staff_id': staff_config.get('staff_id') or staff_config.get('staff_user_id') or staff_config.get('discord_id'),
+                'staff_name': staff_config.get('staff_name') or staff_config.get('username', 'Unknown'),
+                'staff_username': staff_config.get('staff_username') or staff_config.get('username', 'Unknown'),
+                'vantage_referral_link': staff_config.get('ib_link', '') or staff_config.get('vantage_referral_link', ''),
+                'vantage_referral_code': self._extract_referral_code(staff_config.get('ib_link', '') or staff_config.get('vantage_referral_link', ''))
             }
             
         except Exception as e:
