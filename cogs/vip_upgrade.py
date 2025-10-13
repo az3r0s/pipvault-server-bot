@@ -1338,6 +1338,193 @@ class VIPUpgrade(commands.Cog):
         except Exception as e:
             await interaction.response.send_message(f"❌ Error: {str(e)}", ephemeral=True)
     
+    @app_commands.command(name="diagnose_invites", description="[ADMIN] Comprehensive invite system diagnosis")
+    async def diagnose_invites(self, interaction: discord.Interaction):
+        """Comprehensive invite system diagnosis"""
+        if not (isinstance(interaction.user, discord.Member) and interaction.user.guild_permissions.administrator):
+            await interaction.response.send_message("❌ You need administrator permissions to use this command.", ephemeral=True)
+            return
+        
+        await interaction.response.defer(ephemeral=True)
+        
+        try:
+            diagnosis = []
+            
+            # 1. Check database invite codes
+            diagnosis.append("🔍 **DATABASE ANALYSIS**")
+            try:
+                # Get staff configs which contain invite codes
+                staff_configs = self.bot.db.get_all_staff_configs()
+                db_invites = [(config['staff_id'], config.get('invite_code')) for config in staff_configs if config.get('invite_code')]
+                diagnosis.append(f"Total staff in database: {len(db_invites)}")
+                
+                for staff_id, invite_code in db_invites:
+                    try:
+                        user = self.bot.get_user(staff_id)
+                        username = user.display_name if user else f"User {staff_id}"
+                        diagnosis.append(f"• {username}: `{invite_code}`")
+                    except:
+                        diagnosis.append(f"• User {staff_id}: `{invite_code}`")
+                        
+            except Exception as e:
+                diagnosis.append(f"❌ Database error: {str(e)}")
+            
+            # 2. Check Discord invites
+            diagnosis.append("\n🌐 **DISCORD INVITES ANALYSIS**")
+            try:
+                if interaction.guild:
+                    guild_invites = await interaction.guild.invites()
+                    diagnosis.append(f"Total guild invites: {len(guild_invites)}")
+                    
+                    active_codes = {}
+                    for invite in guild_invites:
+                        inviter_name = invite.inviter.display_name if invite.inviter else "Unknown"
+                        active_codes[invite.code] = {
+                            'inviter': invite.inviter.id if invite.inviter else None,
+                            'inviter_name': inviter_name,
+                            'uses': invite.uses or 0,
+                            'max_uses': invite.max_uses or 0,
+                            'max_age': invite.max_age or 0,
+                            'temporary': invite.temporary
+                        }
+                        
+                        status = "🟢 Active"
+                        max_age = invite.max_age or 0
+                        if max_age > 0:
+                            status += f" (expires in {max_age}s)"
+                        if invite.temporary:
+                            status += " (temporary)"
+                            
+                        diagnosis.append(f"• `{invite.code}` by {inviter_name}: {invite.uses or 0} uses - {status}")
+                else:
+                    diagnosis.append("❌ Guild not found")
+                    active_codes = {}
+                    
+            except Exception as e:
+                diagnosis.append(f"❌ Discord API error: {str(e)}")
+                active_codes = {}
+            
+            # 3. Compare database vs Discord
+            diagnosis.append("\n🔄 **SYNCHRONIZATION CHECK**")
+            try:
+                db_codes = set(code for _, code in db_invites)
+                discord_codes = set(active_codes.keys())
+                
+                # Find mismatches
+                db_only = db_codes - discord_codes
+                discord_only = discord_codes - db_codes
+                matching = db_codes & discord_codes
+                
+                diagnosis.append(f"Codes in both DB and Discord: {len(matching)}")
+                diagnosis.append(f"Codes only in database (expired): {len(db_only)}")
+                diagnosis.append(f"Codes only in Discord (not tracked): {len(discord_only)}")
+                
+                if db_only:
+                    diagnosis.append("⚠️ **EXPIRED CODES IN DATABASE:**")
+                    for code in db_only:
+                        diagnosis.append(f"  • `{code}` - should be removed")
+                
+                if discord_only:
+                    diagnosis.append("⚠️ **UNTRACKED DISCORD INVITES:**")
+                    for code in discord_only:
+                        invite_info = active_codes[code]
+                        diagnosis.append(f"  • `{code}` by {invite_info['inviter_name']} - should be added to DB")
+                        
+            except Exception as e:
+                diagnosis.append(f"❌ Comparison error: {str(e)}")
+            
+            # 4. Check staff invite statistics
+            diagnosis.append("\n📊 **INVITE STATISTICS**")
+            try:
+                # Get individual staff VIP stats
+                total_invites = 0
+                staff_with_stats = 0 
+                
+                for config in staff_configs:
+                    try:
+                        stats = self.bot.db.get_staff_vip_stats(config['staff_id'])
+                        if stats and stats.get('total_invites', 0) > 0:
+                            staff_with_stats += 1
+                            total_invites += stats['total_invites']
+                            
+                            user = self.bot.get_user(config['discord_id'])
+                            username = user.display_name if user else config.get('name', f"User {config['discord_id']}")
+                            diagnosis.append(f"• {username}: {stats['total_invites']} invites")
+                    except Exception as e:
+                        pass  # Skip errors for individual staff
+                        
+                diagnosis.append(f"Total recorded invites across all staff: {total_invites}")
+                diagnosis.append(f"Staff members with recorded invites: {staff_with_stats}/{len(staff_configs)}")
+                    
+            except Exception as e:
+                diagnosis.append(f"❌ Statistics error: {str(e)}")
+            
+            # 5. Recommendations
+            diagnosis.append("\n💡 **RECOMMENDATIONS**")
+            try:
+                if db_only:
+                    diagnosis.append("1. Clean expired invite codes from database")
+                if discord_only:
+                    diagnosis.append("2. Add untracked Discord invites to database")
+                if total_invites == 0:
+                    diagnosis.append("3. Check invite tracking system - no invites recorded")
+                    diagnosis.append("4. Verify member join event handler is working")
+                
+                diagnosis.append("5. Consider running /fix_invite_tracking to repair synchronization")
+                    
+            except:
+                diagnosis.append("Error generating recommendations")
+            
+            # Create and send embed
+            diagnosis_text = "\n".join(diagnosis)
+            
+            # Split into multiple embeds if too long
+            if len(diagnosis_text) > 4000:
+                chunks = []
+                current_chunk = []
+                current_length = 0
+                
+                for line in diagnosis:
+                    if current_length + len(line) > 3900:
+                        chunks.append("\n".join(current_chunk))
+                        current_chunk = [line]
+                        current_length = len(line)
+                    else:
+                        current_chunk.append(line)
+                        current_length += len(line) + 1
+                
+                if current_chunk:
+                    chunks.append("\n".join(current_chunk))
+                
+                # Send first chunk as response
+                embed = discord.Embed(
+                    title="🏥 Invite System Diagnosis (1/1)" if len(chunks) == 1 else f"🏥 Invite System Diagnosis (1/{len(chunks)})",
+                    description=chunks[0],
+                    color=discord.Color.orange()
+                )
+                
+                await interaction.followup.send(embed=embed, ephemeral=True)
+                
+                # Send additional chunks
+                for i, chunk in enumerate(chunks[1:], 2):
+                    embed = discord.Embed(
+                        title=f"🏥 Invite System Diagnosis ({i}/{len(chunks)})",
+                        description=chunk,
+                        color=discord.Color.orange()
+                    )
+                    await interaction.followup.send(embed=embed, ephemeral=True)
+            else:
+                embed = discord.Embed(
+                    title="🏥 Invite System Diagnosis",
+                    description=diagnosis_text,
+                    color=discord.Color.orange()
+                )
+                
+                await interaction.followup.send(embed=embed, ephemeral=True)
+                
+        except Exception as e:
+            await interaction.followup.send(f"❌ Diagnosis failed: {str(e)}", ephemeral=True)
+    
     @app_commands.command(name="cleanup_unauthorized_invites", description="[ADMIN] Remove invites not created by staff")
     async def cleanup_unauthorized_invites(self, interaction: discord.Interaction):
         """Clean up invites that weren't created by authorized staff"""
@@ -1353,7 +1540,9 @@ class VIPUpgrade(commands.Cog):
             all_invites = await guild.invites()
             
             # Get authorized staff invite codes from database (only bot-generated staff invites)
-            authorized_invite_codes = self.bot.db.get_all_staff_invite_codes()
+            # Get authorized invite codes from staff configs
+            staff_configs = self.bot.db.get_all_staff_configs()
+            authorized_invite_codes = [(config['staff_id'], config.get('invite_code')) for config in staff_configs if config.get('invite_code')]
             
             # Find unauthorized invites (everything except bot-generated staff invites)
             unauthorized_invites = []
