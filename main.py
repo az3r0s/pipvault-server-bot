@@ -108,6 +108,17 @@ class ZinraiServerBot(commands.Bot):
         except Exception as e:
             logger.error(f"❌ Failed to initialize Telegram manager: {e}")
         
+        # Initialize personal Discord bot for natural messaging
+        try:
+            from src.personal_discord import initialize_personal_bot
+            personal_success = await initialize_personal_bot()
+            if personal_success:
+                logger.info("✅ Personal Discord bot initialized")
+            else:
+                logger.warning("⚠️ Personal Discord bot not available - will use fallback methods")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize personal Discord bot: {e}")
+        
         # Load cogs
         cogs_to_load = [
             'cogs.vip_upgrade',
@@ -195,6 +206,19 @@ class ZinraiServerBot(commands.Bot):
             await ctx.send(embed=embed, ephemeral=True)
         except:
             pass
+    
+    async def close(self):
+        """Cleanup when bot is shutting down"""
+        try:
+            # Cleanup personal Discord bot
+            from src.personal_discord import cleanup_personal_bot
+            await cleanup_personal_bot()
+            logger.info("✅ Cleaned up personal Discord bot")
+        except Exception as e:
+            logger.error(f"❌ Error cleaning up personal Discord bot: {e}")
+        
+        # Call parent close
+        await super().close()
 
 async def main():
     """Main entry point"""

@@ -304,58 +304,30 @@ class VIPSessionManager(commands.Cog):
             thread = self.active_threads[user_id]
             logger.info(f"🔍 DEBUG: Found thread {thread.id} for user {user_id}")
             
-            # Option 1: Use webhook on parent channel to send as your Discord account
-            if self.VA_DISCORD_USER_ID:
-                logger.info(f"🔍 DEBUG: VA_DISCORD_USER_ID is {self.VA_DISCORD_USER_ID}")
-                va_user = self.bot.get_user(self.VA_DISCORD_USER_ID)
-                logger.info(f"🔍 DEBUG: Found VA user: {va_user}")
-                logger.info(f"🔍 DEBUG: Thread parent: {thread.parent}")
+            # Option 1: Use personal Discord bot to send as your actual account (no APP tag)
+            try:
+                from src.personal_discord import get_personal_bot
+                personal_bot = get_personal_bot()
                 
-                if va_user and thread.parent:
-                    try:
-                        logger.info(f"🔍 DEBUG: Attempting webhook approach...")
-                        # Get or create webhook on parent channel
-                        webhooks = await thread.parent.webhooks()
-                        webhook = None
-                        
-                        # Find existing webhook or create new one
-                        for wh in webhooks:
-                            if wh.name == "VIP_VA_Webhook":
-                                webhook = wh
-                                break
-                        
-                        if not webhook:
-                            logger.info(f"🔍 DEBUG: Creating new webhook...")
-                            webhook = await thread.parent.create_webhook(name="VIP_VA_Webhook")
-                        else:
-                            logger.info(f"🔍 DEBUG: Using existing webhook...")
-                        
-                        # Send message as your Discord account in the thread
-                        logger.info(f"🔍 DEBUG: Sending webhook message to thread {thread.id}...")
-                        await webhook.send(
-                            content=message_content,
-                            username=va_user.display_name,
-                            avatar_url=va_user.display_avatar.url,
-                            thread=thread
-                        )
-                        
-                        logger.info(f"✅ Sent VA reply as {va_user.display_name} to thread {thread.id}")
+                if personal_bot and personal_bot.running:
+                    logger.info(f"🔍 DEBUG: Sending message via personal Discord bot...")
+                    success = await personal_bot.send_message(str(thread.id), message_content)
+                    
+                    if success:
+                        logger.info(f"✅ Sent VA reply as personal account to thread {thread.id}")
                         return True
-                    except Exception as webhook_error:
-                        logger.error(f"❌ Webhook failed, falling back to embed: {webhook_error}")
+                    else:
+                        logger.warning(f"⚠️ Personal bot message failed, trying fallback...")
                 else:
-                    logger.warning(f"⚠️ VA user or thread parent not found - va_user: {va_user}, thread.parent: {thread.parent}")
+                    logger.warning(f"⚠️ Personal Discord bot not available, using fallback...")
+                    
+            except Exception as personal_error:
+                logger.error(f"❌ Personal bot failed: {personal_error}")
             
-            # Option 2: Fallback to bot message with clear VA attribution
-            logger.info(f"🔍 DEBUG: Using fallback embed method...")
-            embed = discord.Embed(
-                description=message_content,
-                color=discord.Color.blue()
-            )
-            embed.set_author(name="Staff Response", icon_url=self.bot.user.display_avatar.url)
-            
-            await thread.send(embed=embed)
-            logger.info(f"✅ Sent VA reply as embed to thread {thread.id}")
+            # Option 2: Fallback to regular bot message (clean, no embed)
+            logger.info(f"🔍 DEBUG: Using fallback bot message...")
+            await thread.send(message_content)
+            logger.info(f"✅ Sent VA reply as bot message to thread {thread.id}")
             return True
             
         except Exception as e:
