@@ -243,8 +243,14 @@ class TelegramAccountManager:
     async def _forward_to_discord(self, discord_user_id: str, sender, message_text: str, telegram_message):
         """Forward Telegram message to Discord thread"""
         try:
+            # Clean VA username (remove @ if present) for comparison
+            clean_va_username = self.va_username.lstrip('@') if self.va_username else ''
+            sender_username = sender.username if hasattr(sender, 'username') else ''
+            
+            logger.info(f"🔍 DEBUG: Checking message from {sender_username} against VA {clean_va_username}")
+            
             # Check if message is from the configured VA
-            if hasattr(sender, 'username') and sender.username == self.va_username:
+            if sender_username == clean_va_username:
                 logger.info(f"📤 Forwarding VA reply to Discord - User: {discord_user_id}")
                 
                 # Call Discord callback if set
@@ -253,7 +259,7 @@ class TelegramAccountManager:
                 else:
                     logger.warning("No Discord callback set for forwarding messages")
             else:
-                logger.debug(f"Ignoring message from non-VA user: {sender.username if hasattr(sender, 'username') else 'Unknown'}")
+                logger.info(f"🔍 DEBUG: Ignoring message from non-VA user: {sender_username} (expected: {clean_va_username})")
                 
         except Exception as e:
             logger.error(f"❌ Error forwarding to Discord: {e}")
@@ -340,11 +346,12 @@ class TelegramAccountManager:
             # Find VA user
             va_user = await telegram_account.client.get_entity(va_username)
             
-            # Delete chat history (this deletes from the dummy account's side)
+            # Delete chat history from dummy account's side
             await telegram_account.client(messages.DeleteHistoryRequest(
                 peer=va_user,
                 max_id=0,  # Delete all messages
-                just_clear=True  # Clear history without notifying the other party
+                just_clear=False,  # Delete completely, not just clear
+                revoke=True  # Try to delete from both sides
             ))
             
             logger.info(f"🗑️ Cleared chat history between account {telegram_account.phone} and VA {va_username}")
@@ -352,7 +359,27 @@ class TelegramAccountManager:
             
         except Exception as e:
             logger.error(f"❌ Failed to clear chat history for account {telegram_account.phone}: {e}")
-            return False
+            # Try alternative method - delete individual messages
+            try:
+                logger.info(f"🔄 Trying alternative method to clear chat history...")
+                
+                # Get all messages in the chat
+                messages_to_delete = []
+                async for message in telegram_account.client.iter_messages(va_user, limit=100):
+                    messages_to_delete.append(message)
+                
+                if messages_to_delete:
+                    # Delete messages in batches
+                    await telegram_account.client.delete_messages(va_user, messages_to_delete)
+                    logger.info(f"🗑️ Deleted {len(messages_to_delete)} messages using alternative method")
+                    return True
+                else:
+                    logger.info(f"ℹ️ No messages found to delete")
+                    return True
+                    
+            except Exception as alt_e:
+                logger.error(f"❌ Alternative chat clearing method also failed: {alt_e}")
+                return False
     
     async def send_message(self, discord_user_id: str, va_username: str, message: str) -> bool:
         """Send message from dummy account to VA - appears as natural Telegram conversation"""
