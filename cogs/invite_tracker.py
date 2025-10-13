@@ -338,7 +338,7 @@ class InviteTracker(commands.Cog):
             staff_invites = self.bot.db.get_all_staff_configs()
             staff_info = ""
             for staff in staff_invites[:5]:  # Limit to first 5
-                staff_info += f"**{staff['username']}**: {staff['invite_code']}\n"
+                staff_info += f"**{staff['staff_username']}**: {staff['invite_code']}\n"
             
             if staff_info:
                 embed.add_field(
