@@ -1365,6 +1365,30 @@ class VIPUpgrade(commands.Cog):
             )
             
             if success:
+                # Check if user already has VIP role and create VIP request entry
+                vip_status = "❌ No VIP role"
+                if self.VIP_ROLE_ID and self.VIP_ROLE_ID != '0':
+                    vip_role = interaction.guild.get_role(int(self.VIP_ROLE_ID))
+                    if vip_role and vip_role in user.roles:
+                        # User already has VIP - create a completed VIP request
+                        request_id = self.bot.db.create_vip_request(
+                            user_id=user.id,
+                            username=user.name,
+                            request_type="manual_record",
+                            staff_id=staff_member.id,
+                            request_data=f"Manual join record - user already had VIP role when recorded"
+                        )
+                        
+                        if request_id > 0:
+                            # Mark as completed immediately
+                            update_success = self.bot.db.update_vip_request_status(request_id, 'completed')
+                            if update_success:
+                                vip_status = "✅ VIP role detected - request auto-created as completed"
+                            else:
+                                vip_status = "⚠️ VIP role detected, request created but failed to mark completed"
+                        else:
+                            vip_status = "⚠️ VIP role detected but failed to create request"
+                
                 # Immediately backup to cloud API for persistence
                 await self.bot.db.backup_to_cloud()
                 
@@ -1378,6 +1402,7 @@ class VIPUpgrade(commands.Cog):
                 embed.add_field(name="👥 Staff", value=staff_member.mention, inline=True)
                 join_time = user.joined_at.strftime("%Y-%m-%d %H:%M:%S") if user.joined_at else "Unknown"
                 embed.add_field(name="📅 Joined", value=join_time, inline=False)
+                embed.add_field(name="👑 VIP Status", value=vip_status, inline=False)
                 embed.add_field(name="☁️ Status", value="Backed up to cloud API", inline=False)
             else:
                 embed = discord.Embed(
@@ -1390,6 +1415,109 @@ class VIPUpgrade(commands.Cog):
             
         except Exception as e:
             await interaction.response.send_message(f"❌ Error recording user join: {str(e)}", ephemeral=True)
+    
+    @app_commands.command(name="sync_existing_vip_members", description="[ADMIN] Sync existing VIP role holders with invite statistics")
+    async def sync_existing_vip_members(self, interaction: discord.Interaction):
+        """Find existing VIP members and create completed VIP requests if missing"""
+        if not (isinstance(interaction.user, discord.Member) and interaction.user.guild_permissions.administrator):
+            await interaction.response.send_message("❌ You need administrator permissions to use this command.", ephemeral=True)
+            return
+        
+        try:
+            if not self.VIP_ROLE_ID or self.VIP_ROLE_ID == '0':
+                await interaction.response.send_message("❌ VIP role ID not configured.", ephemeral=True)
+                return
+            
+            vip_role = interaction.guild.get_role(int(self.VIP_ROLE_ID))
+            if not vip_role:
+                await interaction.response.send_message("❌ VIP role not found.", ephemeral=True)
+                return
+            
+            # Get all members with VIP role
+            vip_members = [member for member in interaction.guild.members if vip_role in member.roles]
+            
+            synced_count = 0
+            skipped_count = 0
+            
+            for member in vip_members:
+                # Check if they already have a VIP request
+                existing_requests = self.bot.db.get_user_vip_requests(member.id)
+                has_completed_request = any(req.get('status') == 'completed' for req in existing_requests)
+                
+                if not has_completed_request:
+                    # Check if they have invite tracking (to find referring staff)
+                    invite_info = self.bot.db.get_user_invite_info(member.id)
+                    
+                    if invite_info:
+                        # Find staff member
+                        staff_config = self.bot.db.get_staff_config_by_invite(invite_info['invite_code'])
+                        if staff_config:
+                            staff_id = staff_config.get('discord_id') or staff_config.get('staff_id') or staff_config.get('staff_user_id', 0)
+                            
+                            # Create completed VIP request
+                            request_id = self.bot.db.create_vip_request(
+                                user_id=member.id,
+                                username=member.name,
+                                request_type="sync_existing",
+                                staff_id=staff_id,
+                                request_data=f"Synced existing VIP member - had role but no completed request"
+                            )
+                            
+                            if request_id > 0:
+                                self.bot.db.update_vip_request_status(request_id, 'completed')
+                                synced_count += 1
+                            else:
+                                skipped_count += 1
+                        else:
+                            # No staff found - create with unknown staff
+                            request_id = self.bot.db.create_vip_request(
+                                user_id=member.id,
+                                username=member.name,
+                                request_type="sync_existing_unknown_staff",
+                                staff_id=0,  # Unknown staff
+                                request_data=f"Synced existing VIP member - had role but no invite tracking"
+                            )
+                            
+                            if request_id > 0:
+                                self.bot.db.update_vip_request_status(request_id, 'completed')
+                                synced_count += 1
+                            else:
+                                skipped_count += 1
+                    else:
+                        # No invite info - create with unknown staff
+                        request_id = self.bot.db.create_vip_request(
+                            user_id=member.id,
+                            username=member.name,
+                            request_type="sync_existing_no_invite",
+                            staff_id=0,  # Unknown staff
+                            request_data=f"Synced existing VIP member - had role but no invite info"
+                        )
+                        
+                        if request_id > 0:
+                            self.bot.db.update_vip_request_status(request_id, 'completed')
+                            synced_count += 1
+                        else:
+                            skipped_count += 1
+                else:
+                    skipped_count += 1
+            
+            # Backup to cloud
+            await self.bot.db.backup_to_cloud()
+            
+            embed = discord.Embed(
+                title="✅ VIP Member Sync Complete",
+                description=f"Synchronized existing VIP role holders with invite statistics",
+                color=discord.Color.green()
+            )
+            embed.add_field(name="👑 Total VIP Members", value=str(len(vip_members)), inline=True)
+            embed.add_field(name="✅ Synced", value=str(synced_count), inline=True)
+            embed.add_field(name="⏭️ Skipped", value=str(skipped_count), inline=True)
+            embed.add_field(name="📝 Note", value="Skipped members already had completed VIP requests", inline=False)
+            
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Error syncing VIP members: {str(e)}", ephemeral=True)
     
     @app_commands.command(name="debug_staff_database", description="[ADMIN] Debug staff invites database with usernames")
     async def debug_staff_database(self, interaction: discord.Interaction):

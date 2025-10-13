@@ -299,6 +299,33 @@ class CloudAPIServerDatabase:
             logger.error(f"❌ Error getting user invite info: {e}")
             return None
     
+    def remove_user_invite_tracking(self, user_id: int) -> bool:
+        """Remove invite tracking data when a user leaves the server"""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            
+            # Check if user exists first
+            cursor.execute('SELECT user_id FROM invite_tracking WHERE user_id = ?', (user_id,))
+            exists = cursor.fetchone()
+            
+            if exists:
+                # Remove from invite tracking
+                cursor.execute('DELETE FROM invite_tracking WHERE user_id = ?', (user_id,))
+                conn.commit()
+                logger.info(f"✅ Removed invite tracking for user {user_id}")
+                result = True
+            else:
+                logger.info(f"ℹ️ No invite tracking found for user {user_id}")
+                result = False
+                
+            conn.close()
+            return result
+            
+        except Exception as e:
+            logger.error(f"❌ Error removing user invite tracking: {e}")
+            return False
+    
     def create_vip_request(self, user_id: int, username: str, request_type: str, 
                           staff_id: int, request_data: str) -> int:
         """Create a new VIP upgrade request"""

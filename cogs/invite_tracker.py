@@ -135,6 +135,28 @@ class InviteTracker(commands.Cog):
             logger.error(f"❌ Error tracking member join: {e}")
     
     @commands.Cog.listener()
+    async def on_member_remove(self, member):
+        """Clean up invite tracking data when a member leaves"""
+        try:
+            # Remove the user from invite tracking
+            success = self.bot.db.remove_user_invite_tracking(member.id)
+            
+            if success:
+                # Immediately backup to cloud for persistence
+                try:
+                    await self.bot.db.backup_to_cloud()
+                    logger.info(f"☁️ Leave data backed up to cloud API for user {member.name}")
+                except Exception as backup_error:
+                    logger.error(f"❌ Failed to backup leave data to cloud: {backup_error}")
+                
+                logger.info(f"🚪 Removed invite tracking for {member.name} ({member.id}) who left the server")
+            else:
+                logger.warning(f"⚠️ No invite tracking found for {member.name} ({member.id}) who left")
+                
+        except Exception as e:
+            logger.error(f"❌ Error handling member leave: {e}")
+    
+    @commands.Cog.listener()
     async def on_invite_create(self, invite):
         """Update cache when new invite is created"""
         try:
