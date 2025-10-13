@@ -334,12 +334,22 @@ class VIPUpgrade(commands.Cog):
                 await interaction.response.send_message("❌ This command must be run in a server", ephemeral=True)
                 return
             
-            # Find the first text channel to create invite from
+            # Find the welcome channel first, then fallback to other channels
             invite_channel = None
+            
+            # First priority: find welcome channel
             for channel in interaction.guild.text_channels:
-                if channel.permissions_for(interaction.guild.me).create_instant_invite:
+                if (channel.name.lower() in ['welcome', 'general', 'lobby', 'main'] and 
+                    channel.permissions_for(interaction.guild.me).create_instant_invite):
                     invite_channel = channel
                     break
+            
+            # Fallback: any channel where bot can create invites
+            if not invite_channel:
+                for channel in interaction.guild.text_channels:
+                    if channel.permissions_for(interaction.guild.me).create_instant_invite:
+                        invite_channel = channel
+                        break
             
             if not invite_channel:
                 await interaction.response.send_message("❌ Cannot create invite - no suitable channel found", ephemeral=True)
@@ -2113,12 +2123,22 @@ class VIPUpgrade(commands.Cog):
             
             results.append(f"🔄 **CREATING INVITES FOR {len(missing_invites)} STAFF MEMBERS**\n")
             
-            # Find a suitable channel for creating invites (same logic as create_staff_invite)
+            # Find the welcome channel first, then fallback to other channels
             invite_channel = None
+            
+            # First priority: find welcome channel
             for channel in interaction.guild.text_channels:
-                if channel.permissions_for(interaction.guild.me).create_instant_invite:
+                if (channel.name.lower() in ['welcome', 'general', 'lobby', 'main'] and 
+                    channel.permissions_for(interaction.guild.me).create_instant_invite):
                     invite_channel = channel
                     break
+            
+            # Fallback: any channel where bot can create invites
+            if not invite_channel:
+                for channel in interaction.guild.text_channels:
+                    if channel.permissions_for(interaction.guild.me).create_instant_invite:
+                        invite_channel = channel
+                        break
             
             if not invite_channel:
                 await interaction.followup.send("❌ Cannot create invites - no suitable channel found", ephemeral=True)
