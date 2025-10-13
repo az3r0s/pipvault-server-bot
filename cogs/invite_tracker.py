@@ -187,6 +187,59 @@ class InviteTracker(commands.Cog):
         except Exception as e:
             logger.error(f"❌ Error removing deleted invite: {e}")
     
+    @commands.Cog.listener()
+    async def on_member_update(self, before, after):
+        """Track when members get VIP role and update their referral status"""
+        try:
+            # Check if VIP role was added
+            VIP_ROLE_ID = int(self.bot.get_env_var('VIP_ROLE_ID', '1401614579850543206'))
+            
+            before_vip = any(role.id == VIP_ROLE_ID for role in before.roles)
+            after_vip = any(role.id == VIP_ROLE_ID for role in after.roles)
+            
+            # If user just got VIP role
+            if not before_vip and after_vip:
+                logger.info(f"🎉 {after.name} just became VIP! Checking for referral update...")
+                
+                # Get their invite info from database
+                invite_info = self.bot.db.get_user_invite_info(after.id)
+                
+                if invite_info and invite_info.get('invite_code') != 'unknown':
+                    # Get staff config for their invite
+                    staff_config = self.bot.db.get_staff_config_by_invite(invite_info['invite_code'])
+                    
+                    if staff_config:
+                        # Create VIP request to track this upgrade
+                        request_id = self.bot.db.create_vip_request(
+                            user_id=after.id,
+                            username=f"{after.name}#{after.discriminator}",
+                            request_type="role_promotion",
+                            staff_id=staff_config['discord_id'],
+                            request_data=f"User promoted to VIP by role assignment. Original invite: {invite_info['invite_code']}"
+                        )
+                        
+                        if request_id:
+                            # Mark as completed immediately
+                            self.bot.db.update_vip_request_status(request_id, 'completed')
+                            
+                            # Backup to cloud
+                            try:
+                                await self.bot.db.backup_to_cloud()
+                                logger.info(f"☁️ VIP promotion data backed up to cloud API for user {after.name}")
+                            except Exception as backup_error:
+                                logger.error(f"❌ Failed to backup VIP promotion data: {backup_error}")
+                            
+                            logger.info(f"✅ Updated VIP status for {after.name} - credited to staff {staff_config['username']}")
+                        else:
+                            logger.error(f"❌ Failed to create VIP request for {after.name}")
+                    else:
+                        logger.warning(f"⚠️ No staff config found for invite {invite_info['invite_code']} when {after.name} became VIP")
+                else:
+                    logger.warning(f"⚠️ No invite info found for {after.name} when they became VIP")
+                    
+        except Exception as e:
+            logger.error(f"❌ Error handling member update for VIP role: {e}")
+    
     @commands.hybrid_command(name="setup_staff_invite")
     @commands.has_permissions(administrator=True)
     async def setup_staff_invite(self, ctx, staff_member: discord.Member, invite_code: str, 
@@ -231,6 +284,157 @@ class InviteTracker(commands.Cog):
 
     
 
+    
+    @commands.hybrid_command(name="debug_invites")
+    @commands.has_permissions(manage_guild=True)
+    async def debug_invites(self, ctx):
+        """Debug current invite cache and live invite data"""
+        try:
+            guild = ctx.guild
+            
+            # Get current live invites
+            current_invites = await guild.invites()
+            
+            embed = discord.Embed(
+                title="🔍 Invite Debug Information",
+                description=f"Debugging invite tracking for {guild.name}",
+                color=discord.Color.blue()
+            )
+            
+            # Show cache status
+            cache_info = ""
+            if guild.id in self.invite_cache:
+                cache_count = len(self.invite_cache[guild.id])
+                cache_info = f"✅ Cache exists with {cache_count} invites"
+            else:
+                cache_info = "❌ No cache found for this guild"
+            
+            embed.add_field(
+                name="📊 Cache Status",
+                value=cache_info,
+                inline=False
+            )
+            
+            # Show live invites vs cached
+            live_vs_cache = ""
+            for invite in current_invites[:5]:  # Limit to first 5
+                inviter_name = invite.inviter.name if invite.inviter else "System"
+                cached_uses = "Not cached"
+                
+                if guild.id in self.invite_cache and invite.code in self.invite_cache[guild.id]:
+                    cached_uses = str(self.invite_cache[guild.id][invite.code]['uses'])
+                
+                live_vs_cache += f"**{invite.code}** ({inviter_name})\n"
+                live_vs_cache += f"Live: {invite.uses} | Cached: {cached_uses}\n\n"
+            
+            if live_vs_cache:
+                embed.add_field(
+                    name="🔄 Live vs Cached Invites",
+                    value=live_vs_cache[:1024],  # Discord field limit
+                    inline=False
+                )
+            
+            # Show staff invite codes
+            staff_invites = self.bot.db.get_all_staff_configs()
+            staff_info = ""
+            for staff in staff_invites[:5]:  # Limit to first 5
+                staff_info += f"**{staff['username']}**: {staff['invite_code']}\n"
+            
+            if staff_info:
+                embed.add_field(
+                    name="👥 Staff Invite Codes",
+                    value=staff_info,
+                    inline=False
+                )
+            
+            await ctx.send(embed=embed)
+            
+        except Exception as e:
+            logger.error(f"❌ Error in debug_invites: {e}")
+            await ctx.send(f"❌ Error: {str(e)}")
+    
+    @commands.hybrid_command(name="refresh_invite_cache")
+    @commands.has_permissions(manage_guild=True)
+    async def refresh_invite_cache(self, ctx):
+        """Manually refresh the invite cache"""
+        try:
+            await self.cache_guild_invites(ctx.guild)
+            
+            cache_count = len(self.invite_cache.get(ctx.guild.id, {}))
+            await ctx.send(f"✅ Refreshed invite cache with {cache_count} invites")
+            
+        except Exception as e:
+            logger.error(f"❌ Error refreshing invite cache: {e}")
+            await ctx.send(f"❌ Error: {str(e)}")
+    
+    @commands.hybrid_command(name="update_existing_vips")
+    @commands.has_permissions(administrator=True)
+    async def update_existing_vips(self, ctx):
+        """Check all current VIP members and update their referral status if needed"""
+        try:
+            VIP_ROLE_ID = int(self.bot.get_env_var('VIP_ROLE_ID', '1401614579850543206'))
+            vip_role = ctx.guild.get_role(VIP_ROLE_ID)
+            
+            if not vip_role:
+                await ctx.send(f"❌ VIP role not found (ID: {VIP_ROLE_ID})")
+                return
+            
+            updated_count = 0
+            checked_count = 0
+            
+            await ctx.send("🔍 Checking all VIP members for referral updates...")
+            
+            for member in vip_role.members:
+                checked_count += 1
+                
+                # Get their invite info from database
+                invite_info = self.bot.db.get_user_invite_info(member.id)
+                
+                if invite_info and invite_info.get('invite_code') != 'unknown':
+                    # Get staff config for their invite
+                    staff_config = self.bot.db.get_staff_config_by_invite(invite_info['invite_code'])
+                    
+                    if staff_config:
+                        # Check if they already have a completed VIP request
+                        existing_requests = self.bot.db.get_user_vip_requests(member.id)
+                        has_completed_request = any(req['status'] == 'completed' for req in existing_requests)
+                        
+                        if not has_completed_request:
+                            # Create VIP request to track this existing VIP
+                            request_id = self.bot.db.create_vip_request(
+                                user_id=member.id,
+                                username=f"{member.name}#{member.discriminator}",
+                                request_type="existing_vip_sync",
+                                staff_id=staff_config['discord_id'],
+                                request_data=f"Existing VIP member sync. Original invite: {invite_info['invite_code']}"
+                            )
+                            
+                            if request_id:
+                                # Mark as completed immediately
+                                self.bot.db.update_vip_request_status(request_id, 'completed')
+                                updated_count += 1
+                                
+                                logger.info(f"✅ Synced existing VIP {member.name} - credited to staff {staff_config['username']}")
+            
+            # Backup to cloud
+            if updated_count > 0:
+                try:
+                    await self.bot.db.backup_to_cloud()
+                    logger.info(f"☁️ VIP sync data backed up to cloud API")
+                except Exception as backup_error:
+                    logger.error(f"❌ Failed to backup VIP sync data: {backup_error}")
+            
+            embed = discord.Embed(
+                title="✅ VIP Sync Complete",
+                description=f"Checked {checked_count} VIP members\nUpdated {updated_count} referral statuses",
+                color=discord.Color.green()
+            )
+            
+            await ctx.send(embed=embed)
+            
+        except Exception as e:
+            logger.error(f"❌ Error updating existing VIPs: {e}")
+            await ctx.send(f"❌ Error: {str(e)}")
     
     @commands.hybrid_command(name="invite_stats")
     @commands.has_permissions(manage_guild=True)
