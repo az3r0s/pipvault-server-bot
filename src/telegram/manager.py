@@ -311,21 +311,21 @@ class TelegramAccountManager:
             logger.error(f"❌ No active session for Discord user {discord_user_id}")
             return False
         
-        account = self.active_sessions[discord_user_id]
+        telegram_account = self.active_sessions[discord_user_id]
         
         try:
             # Update the display name (first name + last name)
             # Keep username unchanged, only update display name
-            await account.client(account.UpdateProfileRequest(
+            await telegram_account.client(account.UpdateProfileRequest(
                 first_name=display_name,
                 last_name=""  # Clear last name to keep it clean
             ))
             
-            logger.info(f"✅ Updated display name for account {account.phone} to '{display_name}'")
+            logger.info(f"✅ Updated display name for account {telegram_account.phone} to '{display_name}'")
             return True
             
         except Exception as e:
-            logger.error(f"❌ Failed to update display name for account {account.phone}: {e}")
+            logger.error(f"❌ Failed to update display name for account {telegram_account.phone}: {e}")
             return False
     
     async def clear_chat_history(self, discord_user_id: str, va_username: str) -> bool:
@@ -334,24 +334,24 @@ class TelegramAccountManager:
             logger.error(f"❌ No active session for Discord user {discord_user_id}")
             return False
         
-        account = self.active_sessions[discord_user_id]
+        telegram_account = self.active_sessions[discord_user_id]
         
         try:
             # Find VA user
-            va_user = await account.client.get_entity(va_username)
+            va_user = await telegram_account.client.get_entity(va_username)
             
             # Delete chat history (this deletes from the dummy account's side)
-            await account.client(messages.DeleteHistoryRequest(
+            await telegram_account.client(messages.DeleteHistoryRequest(
                 peer=va_user,
                 max_id=0,  # Delete all messages
                 just_clear=True  # Clear history without notifying the other party
             ))
             
-            logger.info(f"🗑️ Cleared chat history between account {account.phone} and VA {va_username}")
+            logger.info(f"🗑️ Cleared chat history between account {telegram_account.phone} and VA {va_username}")
             return True
             
         except Exception as e:
-            logger.error(f"❌ Failed to clear chat history for account {account.phone}: {e}")
+            logger.error(f"❌ Failed to clear chat history for account {telegram_account.phone}: {e}")
             return False
     
     async def send_message(self, discord_user_id: str, va_username: str, message: str) -> bool:
