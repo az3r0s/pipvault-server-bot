@@ -12,7 +12,15 @@ class EmbedManagement(commands.Cog):
 
     def check_admin_permissions(self, interaction: discord.Interaction) -> bool:
         """Check if user has admin permissions"""
-        if interaction.guild and hasattr(interaction.user, 'guild_permissions'):
+        if not interaction.guild:
+            return False
+            
+        # Check if user is the server owner
+        if interaction.user.id == interaction.guild.owner_id:
+            return True
+            
+        # Check if user has administrator permissions
+        if hasattr(interaction.user, 'guild_permissions'):
             member = interaction.guild.get_member(interaction.user.id)
             if member:
                 return member.guild_permissions.administrator
