@@ -26,6 +26,7 @@ from cryptography.fernet import Fernet
 
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
+from telethon.tl.functions import account, messages
 from telethon.errors import (
     PhoneCodeInvalidError, 
     PhoneNumberInvalidError,
@@ -303,6 +304,55 @@ class TelegramAccountManager:
         
         logger.info(f"🔓 Released account {account.phone} from Discord user {discord_user_id}")
         return True
+    
+    async def update_account_display_name(self, discord_user_id: str, display_name: str) -> bool:
+        """Update the display name of the dummy account to match Discord user"""
+        if discord_user_id not in self.active_sessions:
+            logger.error(f"❌ No active session for Discord user {discord_user_id}")
+            return False
+        
+        account = self.active_sessions[discord_user_id]
+        
+        try:
+            # Update the display name (first name + last name)
+            # Keep username unchanged, only update display name
+            await account.client(account.UpdateProfileRequest(
+                first_name=display_name,
+                last_name=""  # Clear last name to keep it clean
+            ))
+            
+            logger.info(f"✅ Updated display name for account {account.phone} to '{display_name}'")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to update display name for account {account.phone}: {e}")
+            return False
+    
+    async def clear_chat_history(self, discord_user_id: str, va_username: str) -> bool:
+        """Clear chat history between dummy account and VA"""
+        if discord_user_id not in self.active_sessions:
+            logger.error(f"❌ No active session for Discord user {discord_user_id}")
+            return False
+        
+        account = self.active_sessions[discord_user_id]
+        
+        try:
+            # Find VA user
+            va_user = await account.client.get_entity(va_username)
+            
+            # Delete chat history (this deletes from the dummy account's side)
+            await account.client(messages.DeleteHistoryRequest(
+                peer=va_user,
+                max_id=0,  # Delete all messages
+                just_clear=True  # Clear history without notifying the other party
+            ))
+            
+            logger.info(f"🗑️ Cleared chat history between account {account.phone} and VA {va_username}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to clear chat history for account {account.phone}: {e}")
+            return False
     
     async def send_message(self, discord_user_id: str, va_username: str, message: str) -> bool:
         """Send message from dummy account to VA - appears as natural Telegram conversation"""

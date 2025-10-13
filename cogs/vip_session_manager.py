@@ -115,6 +115,16 @@ class VIPSessionManager(commands.Cog):
                 )
                 return False
             
+            # Update dummy account display name to match Discord user
+            display_name_updated = await telegram_manager.update_account_display_name(
+                user_id, 
+                interaction.user.display_name
+            )
+            if display_name_updated:
+                logger.info(f"✅ Updated Telegram display name to '{interaction.user.display_name}' for user {interaction.user.name}")
+            else:
+                logger.warning(f"⚠️ Failed to update Telegram display name for user {interaction.user.name}")
+            
             # Create private thread for the user
             channel = self.bot.get_channel(self.VIP_UPGRADE_CHANNEL_ID)
             if not channel:
@@ -355,9 +365,17 @@ class VIPSessionManager(commands.Cog):
     async def _end_session(self, thread: discord.Thread, user_id: str):
         """End a VIP chat session"""
         try:
-            # Release Telegram account
+            # Clear chat history and release Telegram account
             telegram_manager = get_telegram_manager()
             if telegram_manager:
+                # Clear chat history between dummy account and VA
+                history_cleared = await telegram_manager.clear_chat_history(user_id, self.TELEGRAM_VA_USERNAME)
+                if history_cleared:
+                    logger.info(f"✅ Cleared chat history for user {user_id}")
+                else:
+                    logger.warning(f"⚠️ Failed to clear chat history for user {user_id}")
+                
+                # Release the account
                 await telegram_manager.release_account(user_id)
             
             # Clean up session tracking
@@ -370,8 +388,7 @@ class VIPSessionManager(commands.Cog):
             embed = discord.Embed(
                 title="✅ VIP Chat Session Completed",
                 description="Your VIP chat session has been completed successfully.",
-                color=discord.Color.green(),
-                timestamp=datetime.now()
+                color=discord.Color.green()
             )
             
             embed.add_field(
