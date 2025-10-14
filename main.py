@@ -216,40 +216,49 @@ class ZinraiServerBot(commands.Bot):
                     logger.info(f"✅ Found existing Fake Aidan webhook")
                     break
             
-            # Create webhook if it doesn't exist
-            if not fake_aidan_webhook:
+            # Download avatar for webhook (needed for both create and update)
+            import aiohttp
+            avatar_bytes = None
+            
+            # Your Discord avatar URL - try multiple formats
+            avatar_urls = [
+                "https://cdn.discordapp.com/avatars/243819020040536065/f47ac10b58cc4372a567c0e02b2c3d479378d6563d58850d46e86909e08c8b9a.png",
+                "https://cdn.discordapp.com/avatars/243819020040536065/f47ac10b58cc4372a567c0e02b2c3d479378d6563d58850d46e86909e08c8b9a.webp",
+                "https://cdn.discordapp.com/avatars/243819020040536065/f47ac10b58cc4372a567c0e02b2c3d479378d6563d58850d46e86909e08c8b9a.jpg"
+            ]
+            
+            for avatar_url in avatar_urls:
+                try:
+                    timeout = aiohttp.ClientTimeout(total=10)
+                    async with aiohttp.ClientSession(timeout=timeout) as session:
+                        async with session.get(avatar_url, 
+                                             headers={'User-Agent': 'DiscordBot (PipVault, 1.0)'}) as resp:
+                            if resp.status == 200:
+                                avatar_bytes = await resp.read()
+                                logger.info(f"✅ Downloaded avatar from {avatar_url}")
+                                break
+                            else:
+                                logger.debug(f"Avatar URL {avatar_url} returned {resp.status}")
+                except Exception as avatar_error:
+                    logger.debug(f"Avatar download attempt failed for {avatar_url}: {avatar_error}")
+                    continue
+            
+            if not avatar_bytes:
+                logger.warning("⚠️ Could not download avatar from any URL, using default Discord avatar")
+            
+            # Update existing webhook avatar or create new one
+            if fake_aidan_webhook:
+                try:
+                    # Update existing webhook with new avatar
+                    logger.info("🔧 Updating existing webhook avatar...")
+                    fake_aidan_webhook = await fake_aidan_webhook.edit(avatar=avatar_bytes)
+                    logger.info("✅ Updated existing Fake Aidan webhook avatar!")
+                except Exception as update_error:
+                    logger.warning(f"⚠️ Failed to update webhook avatar: {update_error}")
+            else:
+                # Create webhook if it doesn't exist
                 try:
                     logger.info("🔧 Creating Fake Aidan VIP webhook...")
-                    
-                    # Your Discord avatar URL - try multiple formats
-                    avatar_urls = [
-                        "https://cdn.discordapp.com/avatars/243819020040536065/f47ac10b58cc4372a567c0e02b2c3d479378d6563d58850d46e86909e08c8b9a.png",
-                        "https://cdn.discordapp.com/avatars/243819020040536065/f47ac10b58cc4372a567c0e02b2c3d479378d6563d58850d46e86909e08c8b9a.webp",
-                        "https://cdn.discordapp.com/avatars/243819020040536065/f47ac10b58cc4372a567c0e02b2c3d479378d6563d58850d46e86909e08c8b9a.jpg"
-                    ]
-                    
-                    # Download avatar for webhook with retry logic
-                    import aiohttp
-                    avatar_bytes = None
-                    
-                    for avatar_url in avatar_urls:
-                        try:
-                            timeout = aiohttp.ClientTimeout(total=10)
-                            async with aiohttp.ClientSession(timeout=timeout) as session:
-                                async with session.get(avatar_url, 
-                                                     headers={'User-Agent': 'DiscordBot (PipVault, 1.0)'}) as resp:
-                                    if resp.status == 200:
-                                        avatar_bytes = await resp.read()
-                                        logger.info(f"✅ Downloaded avatar from {avatar_url}")
-                                        break
-                                    else:
-                                        logger.debug(f"Avatar URL {avatar_url} returned {resp.status}")
-                        except Exception as avatar_error:
-                            logger.debug(f"Avatar download attempt failed for {avatar_url}: {avatar_error}")
-                            continue
-                    
-                    if not avatar_bytes:
-                        logger.warning("⚠️ Could not download avatar from any URL, using default Discord avatar")
                     
                     # Create webhook with timeout protection
                     fake_aidan_webhook = await asyncio.wait_for(
