@@ -17,8 +17,6 @@ import asyncio
 import logging
 import os
 import sys
-import atexit
-import signal
 from pathlib import Path
 
 # Add parent directory to path for imports
@@ -32,7 +30,6 @@ from discord.ext.commands import Bot
 from constants import Colors, Emojis
 from utils.database import ServerDatabase
 from utils.cloud_database import CloudAPIServerDatabase
-from database_backup import DatabaseBackupManager
 
 # Configure logging
 logging.basicConfig(
@@ -111,16 +108,79 @@ class ZinraiServerBot(commands.Bot):
         except Exception as e:
             logger.error(f"❌ Failed to initialize Telegram manager: {e}")
         
-        # Initialize personal Discord bot for natural messaging
+        # Initialize fake Aidan account system for natural messaging (100% safe)
         try:
-            from src.personal_discord import initialize_personal_bot
-            personal_success = await initialize_personal_bot()
-            if personal_success:
-                logger.info("✅ Personal Discord bot initialized")
+            from src.fake_personal_account import initialize_fake_aidan
+            
+            # Create webhook URL for VIP channel - you'll need to create this webhook manually
+            vip_channel_id = self.VIP_UPGRADE_CHANNEL_ID
+            if vip_channel_id:
+                vip_channel = self.get_channel(vip_channel_id)
+                if vip_channel and hasattr(vip_channel, 'webhooks'):
+                    # Look for existing webhook
+                    webhooks = await vip_channel.webhooks()
+                    fake_aidan_webhook = None
+                    
+                    for webhook in webhooks:
+                        if webhook.name == "Fake Aidan VIP":
+                            fake_aidan_webhook = webhook
+                            break
+                    
+                    # Create webhook if it doesn't exist
+                    if not fake_aidan_webhook:
+                        try:
+                            logger.info("🔧 Creating Fake Aidan VIP webhook...")
+                            
+                            # Your Discord avatar URL
+                            avatar_url = "https://cdn.discordapp.com/avatars/243819020040536065/f47ac10b58cc4372a567c0e02b2c3d479378d6563d58850d46e86909e08c8b9a.png"
+                            
+                            # Download avatar for webhook
+                            import aiohttp
+                            async with aiohttp.ClientSession() as session:
+                                try:
+                                    async with session.get(avatar_url) as resp:
+                                        if resp.status == 200:
+                                            avatar_bytes = await resp.read()
+                                        else:
+                                            avatar_bytes = None
+                                            logger.warning("⚠️ Could not download avatar, using default")
+                                except:
+                                    avatar_bytes = None
+                                    logger.warning("⚠️ Could not download avatar, using default")
+                            
+                            # Create webhook (only works for text channels)
+                            if hasattr(vip_channel, 'create_webhook'):
+                                fake_aidan_webhook = await vip_channel.create_webhook(
+                                    name="Fake Aidan VIP",
+                                    avatar=avatar_bytes,
+                                    reason="Fake Aidan account for safe VIP messaging"
+                                )
+                            else:
+                                logger.error("❌ Channel doesn't support webhooks")
+                                fake_aidan_webhook = None
+                            
+                            logger.info("🎉 Created Fake Aidan VIP webhook!")
+                            
+                        except Exception as webhook_error:
+                            logger.error(f"❌ Failed to create webhook: {webhook_error}")
+                            logger.warning("⚠️ Fake account system disabled - create webhook manually")
+                    
+                    # Initialize fake account system
+                    if fake_aidan_webhook:
+                        fake_success = await initialize_fake_aidan(fake_aidan_webhook.url)
+                        if fake_success:
+                            logger.info("✅ Fake Aidan account initialized - 100% safe messaging!")
+                        else:
+                            logger.warning("⚠️ Fake Aidan account initialization failed")
+                    else:
+                        logger.warning("⚠️ No webhook available - fake account system disabled")
+                else:
+                    logger.warning("⚠️ VIP channel not found or doesn't support webhooks - fake account system disabled")
             else:
-                logger.warning("⚠️ Personal Discord bot not available - will use fallback methods")
+                logger.warning("⚠️ VIP_UPGRADE_CHANNEL_ID not set - fake account system disabled")
+                
         except Exception as e:
-            logger.error(f"❌ Failed to initialize personal Discord bot: {e}")
+            logger.error(f"❌ Failed to initialize fake Aidan account: {e}")
         
         # Load cogs
         cogs_to_load = [
@@ -128,7 +188,6 @@ class ZinraiServerBot(commands.Bot):
             'cogs.invite_tracker',
             'cogs.embed_management',
             'cogs.vip_session_manager',
-            'database_backup_commands',  # Database backup management
         ]
         
         for cog in cogs_to_load:
@@ -214,12 +273,12 @@ class ZinraiServerBot(commands.Bot):
     async def close(self):
         """Cleanup when bot is shutting down"""
         try:
-            # Cleanup personal Discord bot
-            from src.personal_discord import cleanup_personal_bot
-            await cleanup_personal_bot()
-            logger.info("✅ Cleaned up personal Discord bot")
+            # Cleanup fake Aidan account system
+            from src.fake_personal_account import cleanup_fake_accounts
+            await cleanup_fake_accounts()
+            logger.info("✅ Cleaned up fake Aidan account system")
         except Exception as e:
-            logger.error(f"❌ Error cleaning up personal Discord bot: {e}")
+            logger.error(f"❌ Error cleaning up fake Aidan account system: {e}")
         
         # Call parent close
         await super().close()

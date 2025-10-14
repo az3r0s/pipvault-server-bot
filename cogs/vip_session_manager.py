@@ -448,23 +448,11 @@ class VIPSessionManager(commands.Cog):
                                 
                                 discord_file = discord.File(f, filename=clean_file_name)
                                 
-                                # Send via personal Discord bot first
-                                try:
-                                    from src.personal_discord import get_personal_bot
-                                    personal_bot = get_personal_bot()
-                                    
-                                    if personal_bot and personal_bot.running:
-                                        logger.info(f"🔍 DEBUG: Sending media via personal Discord bot...")
-                                        # Personal bot doesn't support file uploads, fallback to regular bot
-                                        raise Exception("Personal bot doesn't support media uploads")
-                                    else:
-                                        raise Exception("Personal bot not available")
-                                        
-                                except Exception:
-                                    # Fallback to regular bot for media
-                                    logger.info(f"🔍 DEBUG: Using bot for media upload...")
-                                    await thread.send(content=final_message, file=discord_file)
-                                    logger.info(f"✅ Sent media to thread {thread.id}")
+                                # Send media via regular bot (webhooks don't support file uploads easily)
+                                # Note: For media, we use the regular bot since webhook file uploads are complex
+                                logger.info(f"🔍 DEBUG: Using bot for media upload...")
+                                await thread.send(content=final_message, file=discord_file)
+                                logger.info(f"✅ Sent media to thread {thread.id}")
                             
                             return True
                         else:
@@ -489,25 +477,21 @@ class VIPSessionManager(commands.Cog):
             else:
                 logger.info(f"ℹ️ No referral replacements needed for user {user_id}")
             
-            # Option 1: Use personal Discord bot to send as your actual account (no APP tag)
+            # Option 1: Use fake Aidan account to send as your account (no APP tag, 100% safe)
             try:
-                from src.personal_discord import get_personal_bot
-                personal_bot = get_personal_bot()
+                from src.fake_personal_account import send_as_fake_aidan
                 
-                if personal_bot and personal_bot.running:
-                    logger.info(f"🔍 DEBUG: Sending message via personal Discord bot...")
-                    success = await personal_bot.send_message(str(thread.id), processed_message)
-                    
-                    if success:
-                        logger.info(f"✅ Sent VA reply as personal account to thread {thread.id}")
-                        return True
-                    else:
-                        logger.warning(f"⚠️ Personal bot message failed, trying fallback...")
+                logger.info(f"🔍 DEBUG: Sending message via fake Aidan account...")
+                success = await send_as_fake_aidan(processed_message, thread)
+                
+                if success:
+                    logger.info(f"✅ Sent VA reply as fake Aidan account to thread {thread.id}")
+                    return True
                 else:
-                    logger.warning(f"⚠️ Personal Discord bot not available, using fallback...")
+                    logger.warning(f"⚠️ Fake Aidan account message failed, trying fallback...")
                     
-            except Exception as personal_error:
-                logger.error(f"❌ Personal bot failed: {personal_error}")
+            except Exception as fake_account_error:
+                logger.error(f"❌ Fake Aidan account failed: {fake_account_error}")
             
             # Option 2: Fallback to regular bot message (clean, no embed)
             logger.info(f"🔍 DEBUG: Using fallback bot message...")
