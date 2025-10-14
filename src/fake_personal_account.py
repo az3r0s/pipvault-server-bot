@@ -76,7 +76,7 @@ class FakePersonalAccount:
             send_kwargs = {
                 "content": content,
                 "username": self.fake_display_name,  # Shows as "Aidan" 
-                "avatar_url": self.fake_avatar_url,  # Your exact profile picture
+                # Don't override avatar_url - webhook already has correct avatar set
                 "wait": True  # Wait for message to be sent
             }
             
