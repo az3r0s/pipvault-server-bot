@@ -95,48 +95,28 @@ class FakePersonalAccount:
     
     async def send_with_typing(self, content: str, thread: Optional[discord.Thread] = None) -> bool:
         """
-        Send message with realistic typing simulation
-        Makes it look like you're actually typing the response
+        Send message instantly (no typing delays for VIP users)
         """
-        if not thread:
-            logger.warning("⚠️ Cannot simulate typing without thread reference")
-            return await self.send_message(content, thread)
-        
         try:
-            # Calculate realistic typing time based on message length
-            words = len(content.split())
-            typing_seconds = max(2, min(8, words / 15))  # 15 WPM typing speed
-            
-            # Start typing indicator (this requires the actual bot, not webhook)
-            # We'll add a delay instead to simulate thinking/typing time
-            logger.info(f"⌨️ Fake Aidan is 'typing' for {typing_seconds:.1f} seconds...")
-            await asyncio.sleep(typing_seconds)
-            
-            # Send the message as fake account
+            # VIP users deserve instant responses
+            logger.info("💬 Sending instant message as fake Aidan...")
             return await self.send_message(content, thread)
             
         except Exception as e:
-            logger.error(f"❌ Error in typing simulation: {e}")
+            logger.error(f"❌ Error sending message: {e}")
             return False
     
     async def send_realistic_response(self, content: str, thread: Optional[discord.Thread] = None) -> bool:
         """
-        Send a response with realistic human behavior patterns
-        - Random delay before responding
-        - Typing simulation
-        - Natural message sending
+        Send a response instantly for VIP users (no delays needed for paying customers)
         """
         try:
-            # Random thinking delay (like you reading the message first)
-            thinking_delay = random.uniform(3, 12)  # 3-12 seconds to "read" message
-            logger.info(f"🤔 Fake Aidan is 'reading' message for {thinking_delay:.1f} seconds...")
-            await asyncio.sleep(thinking_delay)
-            
-            # Send with typing simulation
-            return await self.send_with_typing(content, thread)
+            # VIP users get instant responses - no artificial delays
+            logger.info("💬 Sending instant VIP response as fake Aidan...")
+            return await self.send_message(content, thread)
             
         except Exception as e:
-            logger.error(f"❌ Error in realistic response: {e}")
+            logger.error(f"❌ Error in VIP response: {e}")
             return False
 
 class FakeAccountManager:

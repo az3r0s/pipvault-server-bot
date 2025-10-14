@@ -221,22 +221,35 @@ class ZinraiServerBot(commands.Bot):
                 try:
                     logger.info("🔧 Creating Fake Aidan VIP webhook...")
                     
-                    # Your Discord avatar URL
-                    avatar_url = "https://cdn.discordapp.com/avatars/243819020040536065/f47ac10b58cc4372a567c0e02b2c3d479378d6563d58850d46e86909e08c8b9a.png"
+                    # Your Discord avatar URL - try multiple formats
+                    avatar_urls = [
+                        "https://cdn.discordapp.com/avatars/243819020040536065/f47ac10b58cc4372a567c0e02b2c3d479378d6563d58850d46e86909e08c8b9a.png",
+                        "https://cdn.discordapp.com/avatars/243819020040536065/f47ac10b58cc4372a567c0e02b2c3d479378d6563d58850d46e86909e08c8b9a.webp",
+                        "https://cdn.discordapp.com/avatars/243819020040536065/f47ac10b58cc4372a567c0e02b2c3d479378d6563d58850d46e86909e08c8b9a.jpg"
+                    ]
                     
-                    # Download avatar for webhook
+                    # Download avatar for webhook with retry logic
                     import aiohttp
                     avatar_bytes = None
-                    try:
-                        async with aiohttp.ClientSession() as session:
-                            async with session.get(avatar_url) as resp:
-                                if resp.status == 200:
-                                    avatar_bytes = await resp.read()
-                                    logger.info("✅ Downloaded avatar for webhook")
-                                else:
-                                    logger.warning("⚠️ Could not download avatar, using default")
-                    except Exception as avatar_error:
-                        logger.warning(f"⚠️ Avatar download failed: {avatar_error}")
+                    
+                    for avatar_url in avatar_urls:
+                        try:
+                            timeout = aiohttp.ClientTimeout(total=10)
+                            async with aiohttp.ClientSession(timeout=timeout) as session:
+                                async with session.get(avatar_url, 
+                                                     headers={'User-Agent': 'DiscordBot (PipVault, 1.0)'}) as resp:
+                                    if resp.status == 200:
+                                        avatar_bytes = await resp.read()
+                                        logger.info(f"✅ Downloaded avatar from {avatar_url}")
+                                        break
+                                    else:
+                                        logger.debug(f"Avatar URL {avatar_url} returned {resp.status}")
+                        except Exception as avatar_error:
+                            logger.debug(f"Avatar download attempt failed for {avatar_url}: {avatar_error}")
+                            continue
+                    
+                    if not avatar_bytes:
+                        logger.warning("⚠️ Could not download avatar from any URL, using default Discord avatar")
                     
                     # Create webhook with timeout protection
                     fake_aidan_webhook = await asyncio.wait_for(
