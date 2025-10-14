@@ -220,31 +220,52 @@ class ZinraiServerBot(commands.Bot):
             import aiohttp
             avatar_bytes = None
             
-            # Your Discord avatar URL - try multiple formats
-            avatar_urls = [
-                "https://cdn.discordapp.com/avatars/243819020040536065/f47ac10b58cc4372a567c0e02b2c3d479378d6563d58850d46e86909e08c8b9a.png",
-                "https://cdn.discordapp.com/avatars/243819020040536065/f47ac10b58cc4372a567c0e02b2c3d479378d6563d58850d46e86909e08c8b9a.webp",
-                "https://cdn.discordapp.com/avatars/243819020040536065/f47ac10b58cc4372a567c0e02b2c3d479378d6563d58850d46e86909e08c8b9a.jpg"
-            ]
+            # Try to get the user's avatar directly from Discord API first
+            try:
+                # Get the user object to access their avatar
+                user = await self.fetch_user(243819020040536065)
+                if user and user.avatar:
+                    # Use Discord.py's built-in method to get avatar bytes
+                    avatar_bytes = await user.avatar.read()
+                    logger.info(f"✅ Downloaded avatar directly from Discord API")
+                else:
+                    logger.info("ℹ️ User has no custom avatar, trying fallback URLs...")
+            except Exception as api_error:
+                logger.warning(f"⚠️ Discord API avatar fetch failed: {api_error}")
             
-            for avatar_url in avatar_urls:
-                try:
-                    timeout = aiohttp.ClientTimeout(total=10)
-                    async with aiohttp.ClientSession(timeout=timeout) as session:
-                        async with session.get(avatar_url, 
-                                             headers={'User-Agent': 'DiscordBot (PipVault, 1.0)'}) as resp:
-                            if resp.status == 200:
-                                avatar_bytes = await resp.read()
-                                logger.info(f"✅ Downloaded avatar from {avatar_url}")
-                                break
-                            else:
-                                logger.debug(f"Avatar URL {avatar_url} returned {resp.status}")
-                except Exception as avatar_error:
-                    logger.debug(f"Avatar download attempt failed for {avatar_url}: {avatar_error}")
-                    continue
+            # Fallback to manual download if Discord API failed
+            if not avatar_bytes:
+                # Your Discord avatar URL - try multiple formats
+                avatar_urls = [
+                    "https://cdn.discordapp.com/avatars/243819020040536065/f47ac10b58cc4372a567c0e02b2c3d479378d6563d58850d46e86909e08c8b9a.png",
+                    "https://cdn.discordapp.com/avatars/243819020040536065/f47ac10b58cc4372a567c0e02b2c3d479378d6563d58850d46e86909e08c8b9a.webp",
+                    "https://cdn.discordapp.com/avatars/243819020040536065/f47ac10b58cc4372a567c0e02b2c3d479378d6563d58850d46e86909e08c8b9a.jpg"
+                ]
+                
+                for avatar_url in avatar_urls:
+                    try:
+                        timeout = aiohttp.ClientTimeout(total=15)
+                        headers = {
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                            'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8'
+                        }
+                        async with aiohttp.ClientSession(timeout=timeout) as session:
+                            async with session.get(avatar_url, headers=headers) as resp:
+                                logger.info(f"🔍 Avatar URL {avatar_url} returned status {resp.status}")
+                                if resp.status == 200:
+                                    avatar_bytes = await resp.read()
+                                    logger.info(f"✅ Downloaded avatar from {avatar_url} ({len(avatar_bytes)} bytes)")
+                                    break
+                                else:
+                                    logger.warning(f"Avatar URL {avatar_url} returned {resp.status}: {resp.reason}")
+                    except Exception as avatar_error:
+                        logger.warning(f"Avatar download attempt failed for {avatar_url}: {avatar_error}")
+                        continue
             
             if not avatar_bytes:
-                logger.warning("⚠️ Could not download avatar from any URL, using default Discord avatar")
+                logger.warning("⚠️ Could not download avatar from any source, using default Discord avatar")
+            else:
+                logger.info(f"✅ Avatar ready for webhook ({len(avatar_bytes)} bytes)")
             
             # Update existing webhook avatar or create new one
             if fake_aidan_webhook:
