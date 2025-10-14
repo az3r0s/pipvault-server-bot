@@ -267,30 +267,30 @@ class ZinraiServerBot(commands.Bot):
             else:
                 logger.info(f"✅ Avatar ready for webhook ({len(avatar_bytes)} bytes)")
             
-            # Update existing webhook avatar or create new one
+            # Force refresh webhook avatar by recreating it (Discord caching workaround)
             if fake_aidan_webhook:
                 try:
-                    # Update existing webhook with new avatar
-                    logger.info("🔧 Updating existing webhook avatar...")
-                    fake_aidan_webhook = await fake_aidan_webhook.edit(avatar=avatar_bytes)
-                    logger.info("✅ Updated existing Fake Aidan webhook avatar!")
-                except Exception as update_error:
-                    logger.warning(f"⚠️ Failed to update webhook avatar: {update_error}")
-            else:
-                # Create webhook if it doesn't exist
+                    # Delete existing webhook to force Discord cache refresh
+                    logger.info("🔄 Deleting existing webhook to refresh avatar cache...")
+                    await fake_aidan_webhook.delete(reason="Refreshing avatar cache")
+                    fake_aidan_webhook = None
+                    logger.info("✅ Deleted old webhook - will create fresh one")
+                except Exception as delete_error:
+                    logger.warning(f"⚠️ Failed to delete old webhook: {delete_error}")
+            
                 try:
-                    logger.info("🔧 Creating Fake Aidan VIP webhook...")
+                    logger.info("🔧 Creating fresh Fake Aidan VIP webhook with updated avatar...")
                     
                     # Create webhook with timeout protection
                     fake_aidan_webhook = await asyncio.wait_for(
                         vip_channel.create_webhook(
                             name="Fake Aidan VIP",
                             avatar=avatar_bytes,
-                            reason="Fake Aidan account for safe VIP messaging"
+                            reason="Fresh fake Aidan account with updated avatar"
                         ),
                         timeout=15.0  # 15 second timeout
                     )
-                    logger.info("🎉 Created Fake Aidan VIP webhook!")
+                    logger.info("🎉 Created fresh Fake Aidan VIP webhook with correct avatar!")
                     
                 except asyncio.TimeoutError:
                     logger.error("❌ Webhook creation timed out")
