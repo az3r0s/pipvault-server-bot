@@ -194,6 +194,16 @@ class FakeAccountManager:
         self.fake_accounts.clear()
         self.active = False
         logger.info("🛑 All fake accounts cleaned up")
+    
+    def get_status(self) -> dict:
+        """Get status of fake account system for debugging"""
+        return {
+            "active": self.active,
+            "fake_accounts": list(self.fake_accounts.keys()),
+            "aidan_account_available": 'aidan' in self.fake_accounts,
+            "aidan_account_initialized": ('aidan' in self.fake_accounts and 
+                                        self.fake_accounts['aidan'].webhook is not None)
+        }
 
 # Global instance for easy access
 fake_account_manager = FakeAccountManager()
@@ -204,6 +214,18 @@ async def initialize_fake_aidan(webhook_url: str) -> bool:
 
 async def send_as_fake_aidan(content: str, thread: Optional[discord.Thread] = None) -> bool:
     """Send message as fake Aidan account"""
+    logger.info(f"🔍 DEBUG: send_as_fake_aidan called - Manager active: {fake_account_manager.active}")
+    logger.info(f"🔍 DEBUG: Available fake accounts: {list(fake_account_manager.fake_accounts.keys())}")
+    
+    if not fake_account_manager.active:
+        logger.error("❌ Fake account manager not active")
+        return False
+    
+    if 'aidan' not in fake_account_manager.fake_accounts:
+        logger.error("❌ Fake Aidan account not found in manager")
+        return False
+    
+    logger.info(f"🔍 DEBUG: Calling fake_account_manager.send_as_aidan...")
     return await fake_account_manager.send_as_aidan(content, thread)
 
 def get_fake_account_manager() -> FakeAccountManager:

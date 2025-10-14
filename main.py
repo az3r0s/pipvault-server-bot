@@ -108,75 +108,8 @@ class ZinraiServerBot(commands.Bot):
         except Exception as e:
             logger.error(f"❌ Failed to initialize Telegram manager: {e}")
         
-        # Initialize fake Aidan account system for natural messaging (100% safe)
-        try:
-            from src.fake_personal_account import initialize_fake_aidan
-            
-            # Create webhook URL for VIP channel - you'll need to create this webhook manually
-            vip_channel_id = self.VIP_UPGRADE_CHANNEL_ID
-            if vip_channel_id:
-                vip_channel = self.get_channel(vip_channel_id)
-                if vip_channel and hasattr(vip_channel, 'webhooks'):
-                    # Look for existing webhook
-                    webhooks = await vip_channel.webhooks()
-                    fake_aidan_webhook = None
-                    
-                    for webhook in webhooks:
-                        if webhook.name == "Fake Aidan VIP":
-                            fake_aidan_webhook = webhook
-                            break
-                    
-                    # Create webhook if it doesn't exist
-                    if not fake_aidan_webhook:
-                        try:
-                            logger.info("🔧 Creating Fake Aidan VIP webhook...")
-                            
-                            # Create webhook with timeout protection
-                            if hasattr(vip_channel, 'create_webhook'):
-                                # Create without avatar first (faster, less likely to fail)
-                                fake_aidan_webhook = await asyncio.wait_for(
-                                    vip_channel.create_webhook(
-                                        name="Fake Aidan VIP",
-                                        reason="Fake Aidan account for safe VIP messaging"
-                                    ),
-                                    timeout=10.0  # 10 second timeout
-                                )
-                                logger.info("🎉 Created Fake Aidan VIP webhook!")
-                            else:
-                                logger.error("❌ Channel doesn't support webhooks")
-                                fake_aidan_webhook = None
-                            
-                        except asyncio.TimeoutError:
-                            logger.error("❌ Webhook creation timed out")
-                            fake_aidan_webhook = None
-                        except Exception as webhook_error:
-                            logger.error(f"❌ Failed to create webhook: {webhook_error}")
-                            fake_aidan_webhook = None
-                    
-                    # Initialize fake account system with timeout
-                    if fake_aidan_webhook:
-                        try:
-                            fake_success = await asyncio.wait_for(
-                                initialize_fake_aidan(fake_aidan_webhook.url),
-                                timeout=5.0  # 5 second timeout
-                            )
-                            if fake_success:
-                                logger.info("✅ Fake Aidan account initialized - 100% safe messaging!")
-                            else:
-                                logger.warning("⚠️ Fake Aidan account initialization failed")
-                        except asyncio.TimeoutError:
-                            logger.error("❌ Fake Aidan initialization timed out")
-                        except Exception as init_error:
-                            logger.error(f"❌ Fake Aidan initialization error: {init_error}")
-                    else:
-                        logger.warning("⚠️ No webhook available - fake account system disabled")
-                else:
-                    logger.warning("⚠️ VIP channel not found or doesn't support webhooks - fake account system disabled")
-            else:
-                logger.warning("⚠️ VIP_UPGRADE_CHANNEL_ID not set - fake account system disabled")
-                
-        except Exception as e:
-            logger.error(f"❌ Failed to initialize fake Aidan account: {e}")
+        # Fake Aidan account will be initialized in on_ready event
+        logger.info("⏳ Fake Aidan account initialization deferred to on_ready event")
         
         # Load cogs
         cogs_to_load = [
@@ -234,6 +167,9 @@ class ZinraiServerBot(commands.Bot):
         # Initialize VIP upgrade channel
         if self.VIP_UPGRADE_CHANNEL_ID:
             await self.setup_vip_upgrade_channel()
+        
+        # Initialize fake Aidan account system
+        await self.setup_fake_aidan_account()
     
     async def setup_vip_upgrade_channel(self):
         """Set up the sticky embed in VIP upgrade channel"""
@@ -247,6 +183,98 @@ class ZinraiServerBot(commands.Bot):
                     logger.info(f"✅ Set up VIP upgrade channel: {channel.name}")
         except Exception as e:
             logger.error(f"❌ Failed to setup VIP upgrade channel: {e}")
+    
+    async def setup_fake_aidan_account(self):
+        """Set up fake Aidan account system for safe VIP messaging"""
+        try:
+            from src.fake_personal_account import initialize_fake_aidan
+            
+            logger.info("🔧 Setting up fake Aidan account system...")
+            
+            # Get VIP channel (now that bot is ready and channel cache is populated)
+            vip_channel_id = self.VIP_UPGRADE_CHANNEL_ID
+            if not vip_channel_id:
+                logger.warning("⚠️ VIP_UPGRADE_CHANNEL_ID not set - fake account system disabled")
+                return
+            
+            vip_channel = self.get_channel(vip_channel_id)
+            if not vip_channel:
+                logger.error(f"❌ VIP channel {vip_channel_id} not found - fake account system disabled")
+                return
+            
+            if not hasattr(vip_channel, 'webhooks'):
+                logger.error("❌ VIP channel doesn't support webhooks - fake account system disabled")
+                return
+            
+            # Look for existing webhook
+            webhooks = await vip_channel.webhooks()
+            fake_aidan_webhook = None
+            
+            for webhook in webhooks:
+                if webhook.name == "Fake Aidan VIP":
+                    fake_aidan_webhook = webhook
+                    logger.info(f"✅ Found existing Fake Aidan webhook")
+                    break
+            
+            # Create webhook if it doesn't exist
+            if not fake_aidan_webhook:
+                try:
+                    logger.info("🔧 Creating Fake Aidan VIP webhook...")
+                    
+                    # Your Discord avatar URL
+                    avatar_url = "https://cdn.discordapp.com/avatars/243819020040536065/f47ac10b58cc4372a567c0e02b2c3d479378d6563d58850d46e86909e08c8b9a.png"
+                    
+                    # Download avatar for webhook
+                    import aiohttp
+                    avatar_bytes = None
+                    try:
+                        async with aiohttp.ClientSession() as session:
+                            async with session.get(avatar_url) as resp:
+                                if resp.status == 200:
+                                    avatar_bytes = await resp.read()
+                                    logger.info("✅ Downloaded avatar for webhook")
+                                else:
+                                    logger.warning("⚠️ Could not download avatar, using default")
+                    except Exception as avatar_error:
+                        logger.warning(f"⚠️ Avatar download failed: {avatar_error}")
+                    
+                    # Create webhook with timeout protection
+                    fake_aidan_webhook = await asyncio.wait_for(
+                        vip_channel.create_webhook(
+                            name="Fake Aidan VIP",
+                            avatar=avatar_bytes,
+                            reason="Fake Aidan account for safe VIP messaging"
+                        ),
+                        timeout=15.0  # 15 second timeout
+                    )
+                    logger.info("🎉 Created Fake Aidan VIP webhook!")
+                    
+                except asyncio.TimeoutError:
+                    logger.error("❌ Webhook creation timed out")
+                    return
+                except Exception as webhook_error:
+                    logger.error(f"❌ Failed to create webhook: {webhook_error}")
+                    return
+            
+            # Initialize fake account system
+            if fake_aidan_webhook:
+                try:
+                    fake_success = await asyncio.wait_for(
+                        initialize_fake_aidan(fake_aidan_webhook.url),
+                        timeout=10.0  # 10 second timeout
+                    )
+                    if fake_success:
+                        logger.info("✅ Fake Aidan account initialized - 100% safe messaging!")
+                    else:
+                        logger.error("❌ Fake Aidan account initialization failed")
+                except asyncio.TimeoutError:
+                    logger.error("❌ Fake Aidan initialization timed out")
+                except Exception as init_error:
+                    logger.error(f"❌ Fake Aidan initialization error: {init_error}")
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to setup fake Aidan account: {e}")
+            logger.info("🔄 VIP system will use regular bot messages as fallback")
     
     async def on_command_error(self, ctx, error):
         """Global error handler"""
@@ -278,6 +306,10 @@ class ZinraiServerBot(commands.Bot):
         
         # Call parent close
         await super().close()
+    
+    def get_env_var(self, key: str, default: str = '') -> str:
+        """Get environment variable with default fallback"""
+        return os.getenv(key, default)
 
 async def main():
     """Main entry point"""

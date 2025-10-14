@@ -392,6 +392,40 @@ class VIPSessionManager(commands.Cog):
             if not success:
                 await message.reply("❌ Failed to send message to VA. Please try again.")
     
+    @commands.Cog.listener()
+    async def on_thread_delete(self, thread: discord.Thread):
+        """Handle thread deletion - clean up VIP sessions automatically"""
+        try:
+            # Check if this was a VIP chat thread
+            if thread.id in self.thread_sessions:
+                user_id = self.thread_sessions[thread.id]
+                logger.info(f"🧹 VIP thread {thread.id} deleted, cleaning up session for user {user_id}")
+                
+                # Clean up the session (same as _end_session but without sending messages)
+                telegram_manager = get_telegram_manager()
+                if telegram_manager:
+                    # Clear chat history between dummy account and VA
+                    history_cleared = await telegram_manager.clear_chat_history(user_id, self.TELEGRAM_VA_USERNAME)
+                    if history_cleared:
+                        logger.info(f"✅ Cleared chat history for user {user_id} after thread deletion")
+                    else:
+                        logger.warning(f"⚠️ Failed to clear chat history for user {user_id} after thread deletion")
+                    
+                    # Release the Telegram account
+                    await telegram_manager.release_account(user_id)
+                    logger.info(f"🔓 Released Telegram account for user {user_id} after thread deletion")
+                
+                # Clean up session tracking
+                if user_id in self.active_threads:
+                    del self.active_threads[user_id]
+                if thread.id in self.thread_sessions:
+                    del self.thread_sessions[thread.id]
+                
+                logger.info(f"✅ Successfully cleaned up VIP session for user {user_id} after thread deletion")
+                
+        except Exception as e:
+            logger.error(f"❌ Error cleaning up session after thread deletion: {e}")
+    
     async def handle_va_reply(self, user_id: str, message_content: str, telegram_message=None):
         """Handle VA reply from Telegram - send as your actual Discord account"""
         try:
@@ -649,6 +683,80 @@ class VIPSessionManager(commands.Cog):
             logger.error(f"❌ Error in vip_status command: {e}")
             await interaction.response.send_message(
                 f"❌ Error retrieving status: {str(e)}", 
+                ephemeral=True
+            )
+
+    @app_commands.command(name="debug_fake_aidan", description="[ADMIN] Debug fake Aidan account status")
+    @app_commands.default_permissions(administrator=True)
+    async def debug_fake_aidan(self, interaction: discord.Interaction):
+        """Debug the fake Aidan account system"""
+        if not (isinstance(interaction.user, discord.Member) and interaction.user.guild_permissions.administrator):
+            await interaction.response.send_message("❌ You need administrator permissions to use this command.", ephemeral=True)
+            return
+
+        try:
+            from src.fake_personal_account import get_fake_account_manager
+            
+            fake_manager = get_fake_account_manager()
+            status = fake_manager.get_status()
+            
+            embed = discord.Embed(
+                title="🔍 Fake Aidan Account Debug Status",
+                color=discord.Color.blue(),
+                timestamp=datetime.now()
+            )
+            
+            embed.add_field(
+                name="📊 System Status",
+                value=(
+                    f"**Manager Active:** {'✅ Yes' if status['active'] else '❌ No'}\n"
+                    f"**Fake Accounts:** {len(status['fake_accounts'])}\n"
+                    f"**Aidan Available:** {'✅ Yes' if status['aidan_account_available'] else '❌ No'}\n"
+                    f"**Aidan Initialized:** {'✅ Yes' if status['aidan_account_initialized'] else '❌ No'}"
+                ),
+                inline=False
+            )
+            
+            if status['fake_accounts']:
+                embed.add_field(
+                    name="🎭 Available Accounts",
+                    value=", ".join(status['fake_accounts']),
+                    inline=False
+                )
+            
+            # Test webhook URL if available
+            if status['aidan_account_available']:
+                try:
+                    aidan_account = fake_manager.fake_accounts['aidan']
+                    webhook_url = aidan_account.webhook_url if aidan_account else "Not available"
+                    embed.add_field(
+                        name="🔗 Webhook URL",
+                        value=f"`{webhook_url[:50]}...`" if len(webhook_url) > 50 else f"`{webhook_url}`",
+                        inline=False
+                    )
+                except:
+                    embed.add_field(
+                        name="🔗 Webhook URL",
+                        value="❌ Error retrieving webhook URL",
+                        inline=False
+                    )
+            
+            embed.add_field(
+                name="💡 Troubleshooting",
+                value=(
+                    "• **If Manager Not Active:** Check webhook creation in VIP channel\n"
+                    "• **If Aidan Not Available:** Webhook 'Fake Aidan VIP' not found\n"
+                    "• **If Not Initialized:** Webhook setup failed during bot startup"
+                ),
+                inline=False
+            )
+            
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            
+        except Exception as e:
+            logger.error(f"❌ Error in debug_fake_aidan command: {e}")
+            await interaction.response.send_message(
+                f"❌ Debug failed: {str(e)}", 
                 ephemeral=True
             )
 
