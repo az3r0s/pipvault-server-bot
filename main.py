@@ -17,6 +17,8 @@ import asyncio
 import logging
 import os
 import sys
+import atexit
+import signal
 from pathlib import Path
 
 # Add parent directory to path for imports
@@ -30,6 +32,7 @@ from discord.ext.commands import Bot
 from constants import Colors, Emojis
 from utils.database import ServerDatabase
 from utils.cloud_database import CloudAPIServerDatabase
+from database_backup import DatabaseBackupManager
 
 # Configure logging
 logging.basicConfig(
@@ -125,6 +128,7 @@ class ZinraiServerBot(commands.Bot):
             'cogs.invite_tracker',
             'cogs.embed_management',
             'cogs.vip_session_manager',
+            'database_backup_commands',  # Database backup management
         ]
         
         for cog in cogs_to_load:

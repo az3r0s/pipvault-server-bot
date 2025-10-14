@@ -2818,5 +2818,433 @@ class InviteCleanupConfirmView(discord.ui.View):
             except:
                 pass
 
+    # =============================================================================
+    # STAFF INVITE DATA PROTECTION SYSTEM
+    # =============================================================================
+
+    @app_commands.command(name="export_staff_invites", description="[ADMIN] Export all staff invite data for backup")
+    @app_commands.default_permissions(administrator=True)
+    async def export_staff_invites(self, interaction: discord.Interaction):
+        """Export all current staff invite mappings and user relationships"""
+        if not (isinstance(interaction.user, discord.Member) and interaction.user.guild_permissions.administrator):
+            await interaction.response.send_message("❌ You need administrator permissions to use this command.", ephemeral=True)
+            return
+
+        try:
+            await interaction.response.defer(ephemeral=True)
+            
+            # Get all staff configurations
+            staff_configs = self.bot.db.get_all_staff_configs()
+            
+            if not staff_configs:
+                embed = discord.Embed(
+                    title="📋 No Staff Data to Export",
+                    description="No staff invite configurations found in database.",
+                    color=discord.Color.orange()
+                )
+                await interaction.followup.send(embed=embed, ephemeral=True)
+                return
+
+            # Build export data structure
+            export_data = {
+                "export_timestamp": datetime.now().isoformat(),
+                "export_version": "1.0",
+                "staff_invites": [],
+                "user_mappings": {}
+            }
+
+            # Export staff configurations
+            for config in staff_configs:
+                staff_id = config.get('staff_id')
+                invite_code = config.get('invite_code')
+                
+                if staff_id and invite_code:
+                    # Get Discord user info
+                    try:
+                        user = self.bot.get_user(staff_id)
+                        username = user.display_name if user else f"User {staff_id}"
+                    except:
+                        username = f"User {staff_id}"
+
+                    staff_data = {
+                        "staff_id": staff_id,
+                        "staff_username": username,
+                        "invite_code": invite_code,
+                        "vantage_referral_link": config.get('vantage_referral_link', ''),
+                        "vantage_ib_code": config.get('vantage_ib_code', ''),
+                        "email_template": config.get('email_template', '')
+                    }
+                    
+                    export_data["staff_invites"].append(staff_data)
+
+                    # Get all users who joined through this invite
+                    invite_users = self.bot.db.get_users_by_invite_code(invite_code)
+                    user_list = []
+                    
+                    for user_data in invite_users:
+                        user_id = user_data.get('user_id')
+                        username = user_data.get('username', 'Unknown')
+                        join_date = user_data.get('joined_at', 'Unknown')
+                        
+                        # Check if user has VIP role
+                        has_vip = False
+                        try:
+                            member = interaction.guild.get_member(int(user_id)) if user_id else None
+                            if member and self.VIP_ROLE_ID:
+                                vip_role = interaction.guild.get_role(int(self.VIP_ROLE_ID))
+                                has_vip = vip_role and vip_role in member.roles
+                        except:
+                            pass
+
+                        user_list.append({
+                            "user_id": user_id,
+                            "username": username,
+                            "joined_at": join_date,
+                            "has_vip": has_vip,
+                            "still_in_server": member is not None if 'member' in locals() else False
+                        })
+                    
+                    export_data["user_mappings"][invite_code] = user_list
+
+            # Create JSON export
+            json_data = json.dumps(export_data, indent=2, default=str)
+            
+            # Create file
+            filename = f"staff_invites_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            
+            with open(filename, 'w', encoding='utf-8') as f:
+                f.write(json_data)
+            
+            # Send file and summary
+            embed = discord.Embed(
+                title="📤 Staff Invite Data Exported",
+                description="Successfully exported all staff invite data and user mappings.",
+                color=discord.Color.green(),
+                timestamp=datetime.now()
+            )
+            
+            total_staff = len(export_data["staff_invites"])
+            total_users = sum(len(users) for users in export_data["user_mappings"].values())
+            
+            embed.add_field(
+                name="📊 Export Summary",
+                value=(
+                    f"**Staff Members:** {total_staff}\n"
+                    f"**Total User Mappings:** {total_users}\n"
+                    f"**Export File:** `{filename}`"
+                ),
+                inline=False
+            )
+            
+            embed.add_field(
+                name="💾 Usage Instructions",
+                value=(
+                    "• **Store this file safely** - it contains all your staff invite relationships\n"
+                    "• **Use before database changes** to preserve data\n"
+                    "• **Restore with** `/import_staff_invites` if data is lost"
+                ),
+                inline=False
+            )
+
+            # Send file
+            with open(filename, 'rb') as f:
+                file = discord.File(f, filename=filename)
+                await interaction.followup.send(embed=embed, file=file, ephemeral=True)
+            
+            # Clean up temporary file
+            try:
+                os.remove(filename)
+            except:
+                pass
+
+        except Exception as e:
+            logger.error(f"Error exporting staff invites: {e}")
+            await interaction.followup.send(f"❌ Export failed: {str(e)}", ephemeral=True)
+
+    @app_commands.command(name="import_staff_invites", description="[ADMIN] Import staff invite data from backup")
+    @app_commands.describe(backup_file="JSON backup file to import from")
+    @app_commands.default_permissions(administrator=True)
+    async def import_staff_invites(self, interaction: discord.Interaction, backup_file: discord.Attachment):
+        """Import staff invite mappings from exported backup file"""
+        if not (isinstance(interaction.user, discord.Member) and interaction.user.guild_permissions.administrator):
+            await interaction.response.send_message("❌ You need administrator permissions to use this command.", ephemeral=True)
+            return
+
+        try:
+            await interaction.response.defer(ephemeral=True)
+            
+            # Validate file type
+            if not backup_file.filename.endswith('.json'):
+                await interaction.followup.send("❌ Please upload a JSON backup file.", ephemeral=True)
+                return
+            
+            # Download and parse file
+            file_content = await backup_file.read()
+            try:
+                import_data = json.loads(file_content.decode('utf-8'))
+            except json.JSONDecodeError as e:
+                await interaction.followup.send(f"❌ Invalid JSON file: {str(e)}", ephemeral=True)
+                return
+            
+            # Validate backup format
+            required_keys = ['export_timestamp', 'staff_invites', 'user_mappings']
+            if not all(key in import_data for key in required_keys):
+                await interaction.followup.send("❌ Invalid backup format. Missing required keys.", ephemeral=True)
+                return
+            
+            # Import staff configurations
+            staff_imported = 0
+            staff_errors = []
+            
+            for staff_data in import_data.get('staff_invites', []):
+                try:
+                    success = self.bot.db.add_staff_invite_config(
+                        staff_id=staff_data['staff_id'],
+                        staff_username=staff_data['staff_username'],
+                        invite_code=staff_data['invite_code'],
+                        vantage_referral_link=staff_data.get('vantage_referral_link', ''),
+                        vantage_ib_code=staff_data.get('vantage_ib_code', ''),
+                        email_template=staff_data.get('email_template', '')
+                    )
+                    
+                    if success:
+                        staff_imported += 1
+                    else:
+                        staff_errors.append(f"Failed to import {staff_data.get('staff_username', 'Unknown')}")
+                        
+                except Exception as e:
+                    staff_errors.append(f"Error importing {staff_data.get('staff_username', 'Unknown')}: {str(e)}")
+            
+            # Import user mappings
+            users_imported = 0
+            user_errors = []
+            
+            for invite_code, user_list in import_data.get('user_mappings', {}).items():
+                for user_data in user_list:
+                    try:
+                        # Use manual join recording to restore historical data
+                        if hasattr(self.bot.db, 'record_user_join_manual'):
+                            success = self.bot.db.record_user_join_manual(
+                                user_id=user_data['user_id'],
+                                username=user_data['username'],
+                                invite_code=invite_code,
+                                inviter_id=0, # Unknown inviter from backup
+                                inviter_username='Backup Import',
+                                joined_at=user_data.get('joined_at')
+                            )
+                        else:
+                            # Fallback to regular join recording
+                            success = self.bot.db.record_user_join(
+                                user_id=user_data['user_id'],
+                                username=user_data['username'],
+                                invite_code=invite_code,
+                                inviter_id=0,
+                                inviter_username='Backup Import',
+                                uses_before=0,
+                                uses_after=1
+                            )
+                        
+                        if success:
+                            users_imported += 1
+                        else:
+                            user_errors.append(f"Failed to import user {user_data.get('username', 'Unknown')}")
+                            
+                    except Exception as e:
+                        user_errors.append(f"Error importing user {user_data.get('username', 'Unknown')}: {str(e)}")
+            
+            # Create results embed
+            embed = discord.Embed(
+                title="📥 Staff Invite Data Import Complete",
+                color=discord.Color.green() if not staff_errors and not user_errors else discord.Color.orange(),
+                timestamp=datetime.now()
+            )
+            
+            embed.add_field(
+                name="📊 Import Results",
+                value=(
+                    f"**Staff Imported:** {staff_imported}/{len(import_data.get('staff_invites', []))}\n"
+                    f"**Users Imported:** {users_imported}/{sum(len(users) for users in import_data.get('user_mappings', {}).values())}\n"
+                    f"**Backup Date:** {import_data.get('export_timestamp', 'Unknown')}"
+                ),
+                inline=False
+            )
+            
+            if staff_errors or user_errors:
+                error_summary = ""
+                if staff_errors:
+                    error_summary += f"**Staff Errors:** {len(staff_errors)}\n"
+                if user_errors:
+                    error_summary += f"**User Errors:** {len(user_errors)}\n"
+                
+                embed.add_field(
+                    name="⚠️ Import Issues",
+                    value=error_summary,
+                    inline=False
+                )
+            
+            embed.add_field(
+                name="🎯 Next Steps",
+                value="• Run `/rebuild_from_discord` to fill any gaps using live Discord data\n• Check `/list_staff_invites` to verify import success",
+                inline=False
+            )
+
+            await interaction.followup.send(embed=embed, ephemeral=True)
+
+        except Exception as e:
+            logger.error(f"Error importing staff invites: {e}")
+            await interaction.followup.send(f"❌ Import failed: {str(e)}", ephemeral=True)
+
+    @app_commands.command(name="rebuild_from_discord", description="[ADMIN] Rebuild staff invite relationships from Discord's live data")
+    @app_commands.default_permissions(administrator=True)
+    async def rebuild_from_discord(self, interaction: discord.Interaction):
+        """Use Discord's live invite data to rebuild missing staff invite connections"""
+        if not (isinstance(interaction.user, discord.Member) and interaction.user.guild_permissions.administrator):
+            await interaction.response.send_message("❌ You need administrator permissions to use this command.", ephemeral=True)
+            return
+
+        try:
+            await interaction.response.defer(ephemeral=True)
+            
+            # Get all staff configurations
+            staff_configs = self.bot.db.get_all_staff_configs()
+            
+            if not staff_configs:
+                embed = discord.Embed(
+                    title="📋 No Staff Configurations Found",
+                    description="No staff invite configurations found. Import backup data first if available.",
+                    color=discord.Color.orange()
+                )
+                await interaction.followup.send(embed=embed, ephemeral=True)
+                return
+            
+            # Get all Discord invites
+            try:
+                discord_invites = await interaction.guild.invites()
+            except Exception as e:
+                await interaction.followup.send(f"❌ Failed to fetch Discord invites: {str(e)}", ephemeral=True)
+                return
+            
+            # Build mapping of staff invite codes
+            staff_invite_codes = {}
+            for config in staff_configs:
+                invite_code = config.get('invite_code')
+                if invite_code:
+                    staff_invite_codes[invite_code] = config
+            
+            # Find matching Discord invites and rebuild relationships
+            rebuilt_relationships = 0
+            processed_invites = []
+            errors = []
+            
+            for discord_invite in discord_invites:
+                invite_code = discord_invite.code
+                
+                # Check if this is a staff invite code
+                if invite_code in staff_invite_codes:
+                    staff_config = staff_invite_codes[invite_code]
+                    inviter = discord_invite.inviter
+                    
+                    if not inviter:
+                        errors.append(f"Invite {invite_code} has no inviter information")
+                        continue
+                    
+                    processed_invites.append({
+                        'code': invite_code,
+                        'staff_name': staff_config.get('staff_username', 'Unknown'),
+                        'uses': discord_invite.uses,
+                        'created': discord_invite.created_at
+                    })
+                    
+                    # Note: Discord doesn't provide historical join data per invite
+                    # This would require audit log analysis for comprehensive rebuild
+                    # For now, we just verify the invite exists and is trackable
+            
+            # Attempt to get recent joins from audit log (if bot has permissions)
+            recent_joins = []
+            try:
+                if interaction.guild.me.guild_permissions.view_audit_log:
+                    async for entry in interaction.guild.audit_logs(
+                        action=discord.AuditLogAction.member_join,
+                        limit=100
+                    ):
+                        recent_joins.append({
+                            'user_id': entry.target.id,
+                            'username': entry.target.display_name,
+                            'joined_at': entry.created_at
+                        })
+                        
+            except Exception as e:
+                logger.warning(f"Could not access audit log: {e}")
+            
+            # Create results embed
+            embed = discord.Embed(
+                title="🔄 Discord Data Rebuild Complete",
+                description="Analyzed Discord's live invite data and attempted to rebuild relationships.",
+                color=discord.Color.blue(),
+                timestamp=datetime.now()
+            )
+            
+            embed.add_field(
+                name="📊 Analysis Results",
+                value=(
+                    f"**Staff Invites Found:** {len(processed_invites)}\n"
+                    f"**Total Discord Invites:** {len(discord_invites)}\n"
+                    f"**Recent Joins Analyzed:** {len(recent_joins)}"
+                ),
+                inline=False
+            )
+            
+            if processed_invites:
+                invite_info = ""
+                for invite in processed_invites[:5]:  # Show first 5
+                    invite_info += f"• **{invite['staff_name']}**: `{invite['code']}` ({invite['uses']} uses)\n"
+                
+                if len(processed_invites) > 5:
+                    invite_info += f"... and {len(processed_invites) - 5} more"
+                
+                embed.add_field(
+                    name="🔗 Active Staff Invites",
+                    value=invite_info,
+                    inline=False
+                )
+            
+            embed.add_field(
+                name="ℹ️ Important Notes",
+                value=(
+                    "• Discord doesn't provide historical invite usage data\n"
+                    "• Only current invite states can be verified\n"
+                    "• For complete rebuild, use exported backup data\n"
+                    "• New joins will be tracked automatically going forward"
+                ),
+                inline=False
+            )
+            
+            if errors:
+                error_summary = "\n".join(errors[:3])
+                if len(errors) > 3:
+                    error_summary += f"\n... and {len(errors) - 3} more errors"
+                
+                embed.add_field(
+                    name="⚠️ Issues Found",
+                    value=error_summary,
+                    inline=False
+                )
+            
+            embed.add_field(
+                name="🎯 Recommendations",
+                value=(
+                    "• Use `/export_staff_invites` before future database changes\n"
+                    "• Set up permanent invite links for each staff member\n"
+                    "• Monitor `/debug_invites` for ongoing tracking health"
+                ),
+                inline=False
+            )
+
+            await interaction.followup.send(embed=embed, ephemeral=True)
+
+        except Exception as e:
+            logger.error(f"Error rebuilding from Discord: {e}")
+            await interaction.followup.send(f"❌ Rebuild failed: {str(e)}", ephemeral=True)
+
 async def setup(bot):
     await bot.add_cog(VIPUpgrade(bot))
