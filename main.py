@@ -224,10 +224,13 @@ class ZinraiServerBot(commands.Bot):
             try:
                 # Get the user object to access their avatar
                 user = await self.fetch_user(243819020040536065)
+                logger.info(f"🔍 DEBUG: Found user: {user.display_name} ({user.id})")
                 if user and user.avatar:
                     # Use Discord.py's built-in method to get avatar bytes
                     avatar_bytes = await user.avatar.read()
                     logger.info(f"✅ Downloaded avatar directly from Discord API")
+                    logger.info(f"🔍 DEBUG: Avatar hash: {user.avatar.key}")
+                    logger.info(f"🔍 DEBUG: Avatar URL: {user.avatar.url}")
                 else:
                     logger.info("ℹ️ User has no custom avatar, trying fallback URLs...")
             except Exception as api_error:
@@ -275,6 +278,10 @@ class ZinraiServerBot(commands.Bot):
                     await fake_aidan_webhook.delete(reason="Refreshing avatar cache")
                     fake_aidan_webhook = None
                     logger.info("✅ Deleted old webhook - will create fresh one")
+                    
+                    # Small delay to ensure Discord processes the deletion
+                    await asyncio.sleep(2)
+                    logger.info("⏳ Waited for Discord to process webhook deletion")
                 except Exception as delete_error:
                     logger.warning(f"⚠️ Failed to delete old webhook: {delete_error}")
             
