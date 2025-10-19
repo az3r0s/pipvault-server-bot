@@ -4,6 +4,7 @@ from discord.ext import commands, tasks
 from discord import app_commands
 import logging
 import os
+import asyncio
 from datetime import datetime, time, timezone
 
 logger = logging.getLogger(__name__)
@@ -15,6 +16,9 @@ class EmbedManagement(commands.Cog):
         # Configuration
         self.FREE_SIGNALS_CHANNEL_ID = int(os.getenv('FREE_SIGNALS_CHANNEL_ID', '0'))
         self.VIP_UPGRADE_CHANNEL_ID = int(os.getenv('VIP_UPGRADE_CHANNEL_ID', '1420009598709923963'))
+        
+        # Track CTA messages for cleanup
+        self.cta_message_ids = {}  # channel_id -> message_id
         
         # Start weekly CTA task
         self.weekly_cta_task.start()
@@ -793,6 +797,9 @@ Check our **results channels** for real VIP performance data!
     async def send_cta_embed(self, channel):
         """Send CTA embed to the specified channel"""
         
+        # Delete previous CTA embed if it exists
+        await self._cleanup_previous_cta(channel)
+        
         # Create the CTA embed
         embed = discord.Embed(
             title="🚀 HOW TO START COPY TRADING NOW",
@@ -835,7 +842,54 @@ Check our **results channels** for real VIP performance data!
         # Send the embed with the button
         guild_id = channel.guild.id if hasattr(channel, 'guild') and channel.guild else 0
         view = CTAView(self.VIP_UPGRADE_CHANNEL_ID, guild_id)
-        await channel.send(embed=embed, view=view)
+        message = await channel.send(embed=embed, view=view)
+        
+        # Pin the message
+        await message.pin()
+        
+        # Delete the "pinned message" notification
+        await self._delete_pin_notification(channel)
+        
+        # Track this CTA message for future cleanup
+        self.cta_message_ids[channel.id] = message.id
+        
+        logger.info(f"📌 CTA embed posted and pinned in {channel.name if hasattr(channel, 'name') else 'channel'}")
+
+    async def _cleanup_previous_cta(self, channel):
+        """Delete the previous CTA embed if it exists"""
+        try:
+            if channel.id in self.cta_message_ids:
+                old_message_id = self.cta_message_ids[channel.id]
+                try:
+                    old_message = await channel.fetch_message(old_message_id)
+                    await old_message.delete()
+                    logger.info(f"🗑️ Deleted previous CTA embed from {channel.name if hasattr(channel, 'name') else 'channel'}")
+                except discord.NotFound:
+                    # Message was already deleted
+                    pass
+                except discord.Forbidden:
+                    logger.warning(f"⚠️ No permission to delete previous CTA message in {channel.name if hasattr(channel, 'name') else 'channel'}")
+                except Exception as e:
+                    logger.error(f"❌ Error deleting previous CTA message: {e}")
+        except Exception as e:
+            logger.error(f"❌ Error in cleanup_previous_cta: {e}")
+
+    async def _delete_pin_notification(self, channel):
+        """Delete the 'pinned a message' notification"""
+        try:
+            # Wait a moment for the pin notification to appear
+            await asyncio.sleep(2)
+            
+            # Get recent messages and find the pin notification
+            async for message in channel.history(limit=5):
+                if (message.type == discord.MessageType.pins_add and 
+                    message.author == self.bot.user):
+                    await message.delete()
+                    logger.info(f"🗑️ Deleted pin notification in {channel.name if hasattr(channel, 'name') else 'channel'}")
+                    break
+        except Exception as e:
+            logger.error(f"❌ Error deleting pin notification: {e}")
+            # Don't raise the error as this is not critical
 
     @tasks.loop(hours=168)  # 168 hours = 1 week
     async def weekly_cta_task(self):
