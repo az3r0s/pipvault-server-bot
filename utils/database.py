@@ -76,6 +76,35 @@ class ServerDatabase:
             )
         ''')
         
+        # Onboarding progress tracking table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS onboarding_progress (
+                user_id TEXT PRIMARY KEY,
+                username TEXT,
+                step INTEGER DEFAULT 1,
+                completed BOOLEAN DEFAULT FALSE,
+                welcome_reacted BOOLEAN DEFAULT FALSE,
+                rules_reacted BOOLEAN DEFAULT FALSE, 
+                faq_reacted BOOLEAN DEFAULT FALSE,
+                chat_introduced BOOLEAN DEFAULT FALSE,
+                started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                completed_at TIMESTAMP NULL,
+                last_step_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
+        # Onboarding analytics tracking table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS onboarding_analytics (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT,
+                event_type TEXT, -- 'member_joined', 'step_completed', 'onboarding_completed'
+                step_name TEXT, -- 'welcome_react', 'rules_react', 'faq_react', 'chat_intro'
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                metadata TEXT -- JSON data for additional context
+            )
+        ''')
+        
         conn.commit()
         conn.close()
         logger.info("✅ Server database initialized")

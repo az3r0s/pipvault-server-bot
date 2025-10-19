@@ -1,0 +1,1012 @@
+{
+  "backup_info": {
+    "created_at": "2025-10-19T17:54:04.069479",
+    "source": "PipVault Cloud API",
+    "cloud_url": "https://web-production-1299f.up.railway.app",
+    "backup_type": "CloudAPIServerDatabase"
+  },
+  "cloud_data": {
+    "invite_tracking": [
+      {
+        "invite_code": "3EAgVbYhEz",
+        "invite_uses_after": 1,
+        "invite_uses_before": 0,
+        "inviter_id": 243819020040536065,
+        "inviter_username": "thegoldtradingresults#0",
+        "joined_at": "2025-09-22 13:22:30.180000+00:00",
+        "user_id": 283996648089321473,
+        "username": "big_man_alli_g"
+      },
+      {
+        "invite_code": "3EAgVbYhEz",
+        "invite_uses_after": 1,
+        "invite_uses_before": 0,
+        "inviter_id": 243819020040536065,
+        "inviter_username": "thegoldtradingresults#0",
+        "joined_at": "2025-08-08 15:10:09.548000+00:00",
+        "user_id": 362968523364106242,
+        "username": "adamw5"
+      },
+      {
+        "invite_code": "M4gMA8Rs5w",
+        "invite_uses_after": 1,
+        "invite_uses_before": 0,
+        "inviter_id": 1315386250542317732,
+        "inviter_username": "fin05358#0",
+        "joined_at": "2025-10-12 08:33:00.473000+00:00",
+        "user_id": 452807400185921537,
+        "username": "jackstoiles9573"
+      },
+      {
+        "invite_code": "3PzvV2ME3u",
+        "invite_uses_after": 1,
+        "invite_uses_before": 0,
+        "inviter_id": 316652790560587776,
+        "inviter_username": "tpenn02#0",
+        "joined_at": "2025-10-08 17:57:42.905000+00:00",
+        "user_id": 496020547067576329,
+        "username": "danoxford02"
+      },
+      {
+        "invite_code": "3EAgVbYhEz",
+        "invite_uses_after": 4,
+        "invite_uses_before": 3,
+        "inviter_id": 1423236576703414272,
+        "inviter_username": "PipVault Bot#4601",
+        "joined_at": "2025-10-15 16:43:08.183952",
+        "user_id": 527146019163734036,
+        "username": "joe.hayes#0"
+      },
+      {
+        "invite_code": "9qbs6Hf27v",
+        "invite_uses_after": 1,
+        "invite_uses_before": 0,
+        "inviter_id": 1143692972253266012,
+        "inviter_username": "lucaedz#0",
+        "joined_at": "2025-09-30 21:30:45.291000+00:00",
+        "user_id": 650725255148732456,
+        "username": "00_fortniteburgerman"
+      },
+      {
+        "invite_code": "3PzvV2ME3u",
+        "invite_uses_after": 1,
+        "invite_uses_before": 0,
+        "inviter_id": 316652790560587776,
+        "inviter_username": "tpenn02#0",
+        "joined_at": "2025-09-01 12:51:48.889000+00:00",
+        "user_id": 666332287712886784,
+        "username": "ellisdutton"
+      },
+      {
+        "invite_code": "3EAgVbYhEz",
+        "invite_uses_after": 1,
+        "invite_uses_before": 0,
+        "inviter_id": 243819020040536065,
+        "inviter_username": "thegoldtradingresults#0",
+        "joined_at": "2025-09-30 14:59:05.782000+00:00",
+        "user_id": 691018866394005585,
+        "username": "anthonydavis2770"
+      },
+      {
+        "invite_code": "3PzvV2ME3u",
+        "invite_uses_after": 1,
+        "invite_uses_before": 0,
+        "inviter_id": 316652790560587776,
+        "inviter_username": "tpenn02#0",
+        "joined_at": "2025-09-24 17:04:11.642000+00:00",
+        "user_id": 968961696133705749,
+        "username": "cyril2771753"
+      },
+      {
+        "invite_code": "3EAgVbYhEz",
+        "invite_uses_after": 1,
+        "invite_uses_before": 0,
+        "inviter_id": 243819020040536065,
+        "inviter_username": "thegoldtradingresults#0",
+        "joined_at": "2025-08-07 22:39:45.303000+00:00",
+        "user_id": 974994910581256293,
+        "username": "outrid3r"
+      },
+      {
+        "invite_code": "3PzvV2ME3u",
+        "invite_uses_after": 1,
+        "invite_uses_before": 0,
+        "inviter_id": 316652790560587776,
+        "inviter_username": "tpenn02#0",
+        "joined_at": "2025-08-21 12:24:21.777000+00:00",
+        "user_id": 1040957031596687391,
+        "username": "bkfulfillment"
+      },
+      {
+        "invite_code": "9qbs6Hf27v",
+        "invite_uses_after": 1,
+        "invite_uses_before": 0,
+        "inviter_id": 1143692972253266012,
+        "inviter_username": "lucaedz#0",
+        "joined_at": "2025-09-30 22:55:56.163000+00:00",
+        "user_id": 1045363895344300182,
+        "username": "kuba_074097"
+      },
+      {
+        "invite_code": "3PzvV2ME3u",
+        "invite_uses_after": 1,
+        "invite_uses_before": 0,
+        "inviter_id": 316652790560587776,
+        "inviter_username": "tpenn02#0",
+        "joined_at": "2025-10-01 21:23:22.737000+00:00",
+        "user_id": 1067413729920176138,
+        "username": "dylansmith1882"
+      },
+      {
+        "invite_code": "6epsPRmKHK",
+        "invite_uses_after": 1,
+        "invite_uses_before": 0,
+        "inviter_id": 1346142502587076702,
+        "inviter_username": "luka017515#0",
+        "joined_at": "2025-09-23 14:28:51.321000+00:00",
+        "user_id": 1143692972253266012,
+        "username": "lucaedz"
+      },
+      {
+        "invite_code": "3PzvV2ME3u",
+        "invite_uses_after": 1,
+        "invite_uses_before": 0,
+        "inviter_id": 316652790560587776,
+        "inviter_username": "tpenn02#0",
+        "joined_at": "2025-08-14 08:45:29.892000+00:00",
+        "user_id": 1220145792921243718,
+        "username": "dbscfc91"
+      },
+      {
+        "invite_code": "3PzvV2ME3u",
+        "invite_uses_after": 1,
+        "invite_uses_before": 0,
+        "inviter_id": 316652790560587776,
+        "inviter_username": "tpenn02#0",
+        "joined_at": "2025-10-02 12:20:38.956000+00:00",
+        "user_id": 1233415240264450112,
+        "username": "jameswatson2001"
+      },
+      {
+        "invite_code": "3PzvV2ME3u",
+        "invite_uses_after": 2,
+        "invite_uses_before": 1,
+        "inviter_id": 1423236576703414272,
+        "inviter_username": "PipVault Bot#4601",
+        "joined_at": "2025-10-18 15:16:48.345538",
+        "user_id": 1234597368226250772,
+        "username": "maxcurrje2#0"
+      },
+      {
+        "invite_code": "unknown",
+        "invite_uses_after": 0,
+        "invite_uses_before": 0,
+        "inviter_id": 0,
+        "inviter_username": "Unknown",
+        "joined_at": "2025-10-14 18:07:53.754517",
+        "user_id": 1243174202836647936,
+        "username": "benclarke288_48983#0"
+      },
+      {
+        "invite_code": "M4gMA8Rs5w",
+        "invite_uses_after": 1,
+        "invite_uses_before": 0,
+        "inviter_id": 1315386250542317732,
+        "inviter_username": "fin05358#0",
+        "joined_at": "2025-10-13 21:23:43.518000+00:00",
+        "user_id": 1250096067521810524,
+        "username": "tameem4937701"
+      },
+      {
+        "invite_code": "9qbs6Hf27v",
+        "invite_uses_after": 1,
+        "invite_uses_before": 0,
+        "inviter_id": 1423236576703414272,
+        "inviter_username": "PipVault Bot#4601",
+        "joined_at": "2025-10-19 15:09:06.143846",
+        "user_id": 1303073746050875412,
+        "username": "adam_hussain01#0"
+      },
+      {
+        "invite_code": "3PzvV2ME3u",
+        "invite_uses_after": 1,
+        "invite_uses_before": 0,
+        "inviter_id": 316652790560587776,
+        "inviter_username": "tpenn02#0",
+        "joined_at": "2025-08-14 06:40:32.911000+00:00",
+        "user_id": 1315386250542317732,
+        "username": "fin05358"
+      },
+      {
+        "invite_code": "3PzvV2ME3u",
+        "invite_uses_after": 1,
+        "invite_uses_before": 0,
+        "inviter_id": 316652790560587776,
+        "inviter_username": "tpenn02#0",
+        "joined_at": "2025-09-28 20:35:44.907000+00:00",
+        "user_id": 1315785995014377615,
+        "username": "sojourn0698"
+      },
+      {
+        "invite_code": "M4gMA8Rs5w",
+        "invite_uses_after": 2,
+        "invite_uses_before": 1,
+        "inviter_id": 1423236576703414272,
+        "inviter_username": "PipVault Bot#4601",
+        "joined_at": "2025-10-16 08:19:33.659423",
+        "user_id": 1331722011772194826,
+        "username": "onebombberry#0"
+      },
+      {
+        "invite_code": "M4gMA8Rs5w",
+        "invite_uses_after": 1,
+        "invite_uses_before": 0,
+        "inviter_id": 1315386250542317732,
+        "inviter_username": "fin05358#0",
+        "joined_at": "2025-09-28 22:15:52.290000+00:00",
+        "user_id": 1421983275668209674,
+        "username": "reecep110"
+      },
+      {
+        "invite_code": "M4gMA8Rs5w",
+        "invite_uses_after": 1,
+        "invite_uses_before": 0,
+        "inviter_id": 1315386250542317732,
+        "inviter_username": "fin05358#0",
+        "joined_at": "2025-10-10 14:02:38.255000+00:00",
+        "user_id": 1425185345867350067,
+        "username": "aidenmcblain"
+      }
+    ],
+    "staff_invites": [
+      {
+        "created_at": "2025-10-14 12:54:47",
+        "email_template": null,
+        "invite_code": "3EAgVbYhEz",
+        "staff_id": 243819020040536065,
+        "staff_username": "thegoldtradingresults",
+        "updated_at": "2025-10-14 12:54:47.843542",
+        "vantage_ib_code": null,
+        "vantage_referral_link": null
+      },
+      {
+        "created_at": "2025-10-14 12:54:35",
+        "email_template": null,
+        "invite_code": "3PzvV2ME3u",
+        "staff_id": 316652790560587776,
+        "staff_username": "tpenn02",
+        "updated_at": "2025-10-14 12:54:35.763449",
+        "vantage_ib_code": null,
+        "vantage_referral_link": null
+      },
+      {
+        "created_at": "2025-10-14 12:54:20",
+        "email_template": null,
+        "invite_code": "WkEPppmUqH",
+        "staff_id": 968961696133705749,
+        "staff_username": "cyril2771753",
+        "updated_at": "2025-10-14 12:54:20.519010",
+        "vantage_ib_code": null,
+        "vantage_referral_link": null
+      },
+      {
+        "created_at": "2025-10-19 14:43:23",
+        "email_template": null,
+        "invite_code": "9qbs6Hf27v",
+        "staff_id": 1143692972253266012,
+        "staff_username": null,
+        "updated_at": "2025-10-19 14:43:23.820742",
+        "vantage_ib_code": null,
+        "vantage_referral_link": null
+      },
+      {
+        "created_at": "2025-10-14 12:54:06",
+        "email_template": null,
+        "invite_code": "M4gMA8Rs5w",
+        "staff_id": 1315386250542317732,
+        "staff_username": "fin05358",
+        "updated_at": "2025-10-14 12:54:06.479617",
+        "vantage_ib_code": null,
+        "vantage_referral_link": null
+      },
+      {
+        "created_at": "2025-10-14 12:53:54",
+        "email_template": null,
+        "invite_code": "6epsPRmKHK",
+        "staff_id": 1346142502587076702,
+        "staff_username": "luka017515",
+        "updated_at": "2025-10-14 12:53:54.573515",
+        "vantage_ib_code": null,
+        "vantage_referral_link": null
+      }
+    ],
+    "vip_requests": [
+      {
+        "created_at": "2025-10-14 13:02:56.584420",
+        "id": 1,
+        "request_data": "Manual join record - user already had VIP role when recorded",
+        "request_type": "manual_record",
+        "staff_id": 1315386250542317732,
+        "status": "completed",
+        "updated_at": "2025-10-14 13:02:56.634107",
+        "user_id": 452807400185921537,
+        "username": "jackstoiles9573",
+        "vantage_email": null
+      },
+      {
+        "created_at": "2025-10-14 13:04:34.080472",
+        "id": 2,
+        "request_data": "Manual join record - user already had VIP role when recorded",
+        "request_type": "manual_record",
+        "staff_id": 316652790560587776,
+        "status": "completed",
+        "updated_at": "2025-10-14 13:04:34.131356",
+        "user_id": 1315386250542317732,
+        "username": "fin05358",
+        "vantage_email": null
+      },
+      {
+        "created_at": "2025-10-14 13:04:44.534378",
+        "id": 3,
+        "request_data": "Manual join record - user already had VIP role when recorded",
+        "request_type": "manual_record",
+        "staff_id": 316652790560587776,
+        "status": "completed",
+        "updated_at": "2025-10-14 13:04:44.586756",
+        "user_id": 1220145792921243718,
+        "username": "dbscfc91",
+        "vantage_email": null
+      },
+      {
+        "created_at": "2025-10-14 13:04:57.672055",
+        "id": 4,
+        "request_data": "Manual join record - user already had VIP role when recorded",
+        "request_type": "manual_record",
+        "staff_id": 316652790560587776,
+        "status": "completed",
+        "updated_at": "2025-10-14 13:04:57.716491",
+        "user_id": 1315785995014377615,
+        "username": "sojourn0698",
+        "vantage_email": null
+      },
+      {
+        "created_at": "2025-10-14 13:05:05.232219",
+        "id": 5,
+        "request_data": "Manual join record - user already had VIP role when recorded",
+        "request_type": "manual_record",
+        "staff_id": 316652790560587776,
+        "status": "completed",
+        "updated_at": "2025-10-14 13:05:05.280646",
+        "user_id": 968961696133705749,
+        "username": "cyril2771753",
+        "vantage_email": null
+      },
+      {
+        "created_at": "2025-10-14 13:05:15.283477",
+        "id": 6,
+        "request_data": "Manual join record - user already had VIP role when recorded",
+        "request_type": "manual_record",
+        "staff_id": 316652790560587776,
+        "status": "completed",
+        "updated_at": "2025-10-14 13:05:15.331151",
+        "user_id": 1233415240264450112,
+        "username": "jameswatson2001",
+        "vantage_email": null
+      },
+      {
+        "created_at": "2025-10-14 13:05:24.687853",
+        "id": 7,
+        "request_data": "Manual join record - user already had VIP role when recorded",
+        "request_type": "manual_record",
+        "staff_id": 316652790560587776,
+        "status": "completed",
+        "updated_at": "2025-10-14 13:05:24.731315",
+        "user_id": 1040957031596687391,
+        "username": "bkfulfillment",
+        "vantage_email": null
+      },
+      {
+        "created_at": "2025-10-14 13:05:35.432905",
+        "id": 8,
+        "request_data": "Manual join record - user already had VIP role when recorded",
+        "request_type": "manual_record",
+        "staff_id": 316652790560587776,
+        "status": "completed",
+        "updated_at": "2025-10-14 13:05:35.485357",
+        "user_id": 496020547067576329,
+        "username": "danoxford02",
+        "vantage_email": null
+      },
+      {
+        "created_at": "2025-10-14 13:05:46.660145",
+        "id": 9,
+        "request_data": "Manual join record - user already had VIP role when recorded",
+        "request_type": "manual_record",
+        "staff_id": 316652790560587776,
+        "status": "completed",
+        "updated_at": "2025-10-14 13:05:46.706859",
+        "user_id": 1067413729920176138,
+        "username": "dylansmith1882",
+        "vantage_email": null
+      },
+      {
+        "created_at": "2025-10-14 13:06:01.879053",
+        "id": 10,
+        "request_data": "Manual join record - user already had VIP role when recorded",
+        "request_type": "manual_record",
+        "staff_id": 316652790560587776,
+        "status": "pending",
+        "updated_at": "2025-10-14 13:06:01",
+        "user_id": 666332287712886784,
+        "username": "ellisdutton",
+        "vantage_email": null
+      },
+      {
+        "created_at": "2025-10-14 13:34:20.618970",
+        "id": 11,
+        "request_data": "Manual join record - user already had VIP role when recorded",
+        "request_type": "manual_record",
+        "staff_id": 243819020040536065,
+        "status": "completed",
+        "updated_at": "2025-10-14 13:34:20.810405",
+        "user_id": 691018866394005585,
+        "username": "anthonydavis2770",
+        "vantage_email": null
+      },
+      {
+        "created_at": "2025-10-14 13:34:31.449355",
+        "id": 12,
+        "request_data": "Manual join record - user already had VIP role when recorded",
+        "request_type": "manual_record",
+        "staff_id": 243819020040536065,
+        "status": "completed",
+        "updated_at": "2025-10-14 13:34:31.502913",
+        "user_id": 974994910581256293,
+        "username": "outrid3r",
+        "vantage_email": null
+      },
+      {
+        "created_at": "2025-10-14 13:34:47.229800",
+        "id": 13,
+        "request_data": "Manual join record - user already had VIP role when recorded",
+        "request_type": "manual_record",
+        "staff_id": 243819020040536065,
+        "status": "completed",
+        "updated_at": "2025-10-14 13:34:47.410396",
+        "user_id": 362968523364106242,
+        "username": "adamw5",
+        "vantage_email": null
+      },
+      {
+        "created_at": "2025-10-14 13:34:57.750095",
+        "id": 14,
+        "request_data": "Manual join record - user already had VIP role when recorded",
+        "request_type": "manual_record",
+        "staff_id": 243819020040536065,
+        "status": "completed",
+        "updated_at": "2025-10-14 13:34:57.796090",
+        "user_id": 283996648089321473,
+        "username": "big_man_alli_g",
+        "vantage_email": null
+      },
+      {
+        "created_at": "2025-10-19 15:28:40.353824",
+        "id": 15,
+        "request_data": "Manual join record - user already had VIP role when recorded",
+        "request_type": "manual_record",
+        "staff_id": 1346142502587076702,
+        "status": "completed",
+        "updated_at": "2025-10-19 15:28:40.402790",
+        "user_id": 1143692972253266012,
+        "username": "lucaedz",
+        "vantage_email": null
+      }
+    ]
+  },
+  "raw_response": {
+    "backup_timestamp": "2025-10-19 16:42:53",
+    "discord_data": {
+      "invite_tracking": [
+        {
+          "invite_code": "3EAgVbYhEz",
+          "invite_uses_after": 1,
+          "invite_uses_before": 0,
+          "inviter_id": 243819020040536065,
+          "inviter_username": "thegoldtradingresults#0",
+          "joined_at": "2025-09-22 13:22:30.180000+00:00",
+          "user_id": 283996648089321473,
+          "username": "big_man_alli_g"
+        },
+        {
+          "invite_code": "3EAgVbYhEz",
+          "invite_uses_after": 1,
+          "invite_uses_before": 0,
+          "inviter_id": 243819020040536065,
+          "inviter_username": "thegoldtradingresults#0",
+          "joined_at": "2025-08-08 15:10:09.548000+00:00",
+          "user_id": 362968523364106242,
+          "username": "adamw5"
+        },
+        {
+          "invite_code": "M4gMA8Rs5w",
+          "invite_uses_after": 1,
+          "invite_uses_before": 0,
+          "inviter_id": 1315386250542317732,
+          "inviter_username": "fin05358#0",
+          "joined_at": "2025-10-12 08:33:00.473000+00:00",
+          "user_id": 452807400185921537,
+          "username": "jackstoiles9573"
+        },
+        {
+          "invite_code": "3PzvV2ME3u",
+          "invite_uses_after": 1,
+          "invite_uses_before": 0,
+          "inviter_id": 316652790560587776,
+          "inviter_username": "tpenn02#0",
+          "joined_at": "2025-10-08 17:57:42.905000+00:00",
+          "user_id": 496020547067576329,
+          "username": "danoxford02"
+        },
+        {
+          "invite_code": "3EAgVbYhEz",
+          "invite_uses_after": 4,
+          "invite_uses_before": 3,
+          "inviter_id": 1423236576703414272,
+          "inviter_username": "PipVault Bot#4601",
+          "joined_at": "2025-10-15 16:43:08.183952",
+          "user_id": 527146019163734036,
+          "username": "joe.hayes#0"
+        },
+        {
+          "invite_code": "9qbs6Hf27v",
+          "invite_uses_after": 1,
+          "invite_uses_before": 0,
+          "inviter_id": 1143692972253266012,
+          "inviter_username": "lucaedz#0",
+          "joined_at": "2025-09-30 21:30:45.291000+00:00",
+          "user_id": 650725255148732456,
+          "username": "00_fortniteburgerman"
+        },
+        {
+          "invite_code": "3PzvV2ME3u",
+          "invite_uses_after": 1,
+          "invite_uses_before": 0,
+          "inviter_id": 316652790560587776,
+          "inviter_username": "tpenn02#0",
+          "joined_at": "2025-09-01 12:51:48.889000+00:00",
+          "user_id": 666332287712886784,
+          "username": "ellisdutton"
+        },
+        {
+          "invite_code": "3EAgVbYhEz",
+          "invite_uses_after": 1,
+          "invite_uses_before": 0,
+          "inviter_id": 243819020040536065,
+          "inviter_username": "thegoldtradingresults#0",
+          "joined_at": "2025-09-30 14:59:05.782000+00:00",
+          "user_id": 691018866394005585,
+          "username": "anthonydavis2770"
+        },
+        {
+          "invite_code": "3PzvV2ME3u",
+          "invite_uses_after": 1,
+          "invite_uses_before": 0,
+          "inviter_id": 316652790560587776,
+          "inviter_username": "tpenn02#0",
+          "joined_at": "2025-09-24 17:04:11.642000+00:00",
+          "user_id": 968961696133705749,
+          "username": "cyril2771753"
+        },
+        {
+          "invite_code": "3EAgVbYhEz",
+          "invite_uses_after": 1,
+          "invite_uses_before": 0,
+          "inviter_id": 243819020040536065,
+          "inviter_username": "thegoldtradingresults#0",
+          "joined_at": "2025-08-07 22:39:45.303000+00:00",
+          "user_id": 974994910581256293,
+          "username": "outrid3r"
+        },
+        {
+          "invite_code": "3PzvV2ME3u",
+          "invite_uses_after": 1,
+          "invite_uses_before": 0,
+          "inviter_id": 316652790560587776,
+          "inviter_username": "tpenn02#0",
+          "joined_at": "2025-08-21 12:24:21.777000+00:00",
+          "user_id": 1040957031596687391,
+          "username": "bkfulfillment"
+        },
+        {
+          "invite_code": "9qbs6Hf27v",
+          "invite_uses_after": 1,
+          "invite_uses_before": 0,
+          "inviter_id": 1143692972253266012,
+          "inviter_username": "lucaedz#0",
+          "joined_at": "2025-09-30 22:55:56.163000+00:00",
+          "user_id": 1045363895344300182,
+          "username": "kuba_074097"
+        },
+        {
+          "invite_code": "3PzvV2ME3u",
+          "invite_uses_after": 1,
+          "invite_uses_before": 0,
+          "inviter_id": 316652790560587776,
+          "inviter_username": "tpenn02#0",
+          "joined_at": "2025-10-01 21:23:22.737000+00:00",
+          "user_id": 1067413729920176138,
+          "username": "dylansmith1882"
+        },
+        {
+          "invite_code": "6epsPRmKHK",
+          "invite_uses_after": 1,
+          "invite_uses_before": 0,
+          "inviter_id": 1346142502587076702,
+          "inviter_username": "luka017515#0",
+          "joined_at": "2025-09-23 14:28:51.321000+00:00",
+          "user_id": 1143692972253266012,
+          "username": "lucaedz"
+        },
+        {
+          "invite_code": "3PzvV2ME3u",
+          "invite_uses_after": 1,
+          "invite_uses_before": 0,
+          "inviter_id": 316652790560587776,
+          "inviter_username": "tpenn02#0",
+          "joined_at": "2025-08-14 08:45:29.892000+00:00",
+          "user_id": 1220145792921243718,
+          "username": "dbscfc91"
+        },
+        {
+          "invite_code": "3PzvV2ME3u",
+          "invite_uses_after": 1,
+          "invite_uses_before": 0,
+          "inviter_id": 316652790560587776,
+          "inviter_username": "tpenn02#0",
+          "joined_at": "2025-10-02 12:20:38.956000+00:00",
+          "user_id": 1233415240264450112,
+          "username": "jameswatson2001"
+        },
+        {
+          "invite_code": "3PzvV2ME3u",
+          "invite_uses_after": 2,
+          "invite_uses_before": 1,
+          "inviter_id": 1423236576703414272,
+          "inviter_username": "PipVault Bot#4601",
+          "joined_at": "2025-10-18 15:16:48.345538",
+          "user_id": 1234597368226250772,
+          "username": "maxcurrje2#0"
+        },
+        {
+          "invite_code": "unknown",
+          "invite_uses_after": 0,
+          "invite_uses_before": 0,
+          "inviter_id": 0,
+          "inviter_username": "Unknown",
+          "joined_at": "2025-10-14 18:07:53.754517",
+          "user_id": 1243174202836647936,
+          "username": "benclarke288_48983#0"
+        },
+        {
+          "invite_code": "M4gMA8Rs5w",
+          "invite_uses_after": 1,
+          "invite_uses_before": 0,
+          "inviter_id": 1315386250542317732,
+          "inviter_username": "fin05358#0",
+          "joined_at": "2025-10-13 21:23:43.518000+00:00",
+          "user_id": 1250096067521810524,
+          "username": "tameem4937701"
+        },
+        {
+          "invite_code": "9qbs6Hf27v",
+          "invite_uses_after": 1,
+          "invite_uses_before": 0,
+          "inviter_id": 1423236576703414272,
+          "inviter_username": "PipVault Bot#4601",
+          "joined_at": "2025-10-19 15:09:06.143846",
+          "user_id": 1303073746050875412,
+          "username": "adam_hussain01#0"
+        },
+        {
+          "invite_code": "3PzvV2ME3u",
+          "invite_uses_after": 1,
+          "invite_uses_before": 0,
+          "inviter_id": 316652790560587776,
+          "inviter_username": "tpenn02#0",
+          "joined_at": "2025-08-14 06:40:32.911000+00:00",
+          "user_id": 1315386250542317732,
+          "username": "fin05358"
+        },
+        {
+          "invite_code": "3PzvV2ME3u",
+          "invite_uses_after": 1,
+          "invite_uses_before": 0,
+          "inviter_id": 316652790560587776,
+          "inviter_username": "tpenn02#0",
+          "joined_at": "2025-09-28 20:35:44.907000+00:00",
+          "user_id": 1315785995014377615,
+          "username": "sojourn0698"
+        },
+        {
+          "invite_code": "M4gMA8Rs5w",
+          "invite_uses_after": 2,
+          "invite_uses_before": 1,
+          "inviter_id": 1423236576703414272,
+          "inviter_username": "PipVault Bot#4601",
+          "joined_at": "2025-10-16 08:19:33.659423",
+          "user_id": 1331722011772194826,
+          "username": "onebombberry#0"
+        },
+        {
+          "invite_code": "M4gMA8Rs5w",
+          "invite_uses_after": 1,
+          "invite_uses_before": 0,
+          "inviter_id": 1315386250542317732,
+          "inviter_username": "fin05358#0",
+          "joined_at": "2025-09-28 22:15:52.290000+00:00",
+          "user_id": 1421983275668209674,
+          "username": "reecep110"
+        },
+        {
+          "invite_code": "M4gMA8Rs5w",
+          "invite_uses_after": 1,
+          "invite_uses_before": 0,
+          "inviter_id": 1315386250542317732,
+          "inviter_username": "fin05358#0",
+          "joined_at": "2025-10-10 14:02:38.255000+00:00",
+          "user_id": 1425185345867350067,
+          "username": "aidenmcblain"
+        }
+      ],
+      "staff_invites": [
+        {
+          "created_at": "2025-10-14 12:54:47",
+          "email_template": null,
+          "invite_code": "3EAgVbYhEz",
+          "staff_id": 243819020040536065,
+          "staff_username": "thegoldtradingresults",
+          "updated_at": "2025-10-14 12:54:47.843542",
+          "vantage_ib_code": null,
+          "vantage_referral_link": null
+        },
+        {
+          "created_at": "2025-10-14 12:54:35",
+          "email_template": null,
+          "invite_code": "3PzvV2ME3u",
+          "staff_id": 316652790560587776,
+          "staff_username": "tpenn02",
+          "updated_at": "2025-10-14 12:54:35.763449",
+          "vantage_ib_code": null,
+          "vantage_referral_link": null
+        },
+        {
+          "created_at": "2025-10-14 12:54:20",
+          "email_template": null,
+          "invite_code": "WkEPppmUqH",
+          "staff_id": 968961696133705749,
+          "staff_username": "cyril2771753",
+          "updated_at": "2025-10-14 12:54:20.519010",
+          "vantage_ib_code": null,
+          "vantage_referral_link": null
+        },
+        {
+          "created_at": "2025-10-19 14:43:23",
+          "email_template": null,
+          "invite_code": "9qbs6Hf27v",
+          "staff_id": 1143692972253266012,
+          "staff_username": null,
+          "updated_at": "2025-10-19 14:43:23.820742",
+          "vantage_ib_code": null,
+          "vantage_referral_link": null
+        },
+        {
+          "created_at": "2025-10-14 12:54:06",
+          "email_template": null,
+          "invite_code": "M4gMA8Rs5w",
+          "staff_id": 1315386250542317732,
+          "staff_username": "fin05358",
+          "updated_at": "2025-10-14 12:54:06.479617",
+          "vantage_ib_code": null,
+          "vantage_referral_link": null
+        },
+        {
+          "created_at": "2025-10-14 12:53:54",
+          "email_template": null,
+          "invite_code": "6epsPRmKHK",
+          "staff_id": 1346142502587076702,
+          "staff_username": "luka017515",
+          "updated_at": "2025-10-14 12:53:54.573515",
+          "vantage_ib_code": null,
+          "vantage_referral_link": null
+        }
+      ],
+      "vip_requests": [
+        {
+          "created_at": "2025-10-14 13:02:56.584420",
+          "id": 1,
+          "request_data": "Manual join record - user already had VIP role when recorded",
+          "request_type": "manual_record",
+          "staff_id": 1315386250542317732,
+          "status": "completed",
+          "updated_at": "2025-10-14 13:02:56.634107",
+          "user_id": 452807400185921537,
+          "username": "jackstoiles9573",
+          "vantage_email": null
+        },
+        {
+          "created_at": "2025-10-14 13:04:34.080472",
+          "id": 2,
+          "request_data": "Manual join record - user already had VIP role when recorded",
+          "request_type": "manual_record",
+          "staff_id": 316652790560587776,
+          "status": "completed",
+          "updated_at": "2025-10-14 13:04:34.131356",
+          "user_id": 1315386250542317732,
+          "username": "fin05358",
+          "vantage_email": null
+        },
+        {
+          "created_at": "2025-10-14 13:04:44.534378",
+          "id": 3,
+          "request_data": "Manual join record - user already had VIP role when recorded",
+          "request_type": "manual_record",
+          "staff_id": 316652790560587776,
+          "status": "completed",
+          "updated_at": "2025-10-14 13:04:44.586756",
+          "user_id": 1220145792921243718,
+          "username": "dbscfc91",
+          "vantage_email": null
+        },
+        {
+          "created_at": "2025-10-14 13:04:57.672055",
+          "id": 4,
+          "request_data": "Manual join record - user already had VIP role when recorded",
+          "request_type": "manual_record",
+          "staff_id": 316652790560587776,
+          "status": "completed",
+          "updated_at": "2025-10-14 13:04:57.716491",
+          "user_id": 1315785995014377615,
+          "username": "sojourn0698",
+          "vantage_email": null
+        },
+        {
+          "created_at": "2025-10-14 13:05:05.232219",
+          "id": 5,
+          "request_data": "Manual join record - user already had VIP role when recorded",
+          "request_type": "manual_record",
+          "staff_id": 316652790560587776,
+          "status": "completed",
+          "updated_at": "2025-10-14 13:05:05.280646",
+          "user_id": 968961696133705749,
+          "username": "cyril2771753",
+          "vantage_email": null
+        },
+        {
+          "created_at": "2025-10-14 13:05:15.283477",
+          "id": 6,
+          "request_data": "Manual join record - user already had VIP role when recorded",
+          "request_type": "manual_record",
+          "staff_id": 316652790560587776,
+          "status": "completed",
+          "updated_at": "2025-10-14 13:05:15.331151",
+          "user_id": 1233415240264450112,
+          "username": "jameswatson2001",
+          "vantage_email": null
+        },
+        {
+          "created_at": "2025-10-14 13:05:24.687853",
+          "id": 7,
+          "request_data": "Manual join record - user already had VIP role when recorded",
+          "request_type": "manual_record",
+          "staff_id": 316652790560587776,
+          "status": "completed",
+          "updated_at": "2025-10-14 13:05:24.731315",
+          "user_id": 1040957031596687391,
+          "username": "bkfulfillment",
+          "vantage_email": null
+        },
+        {
+          "created_at": "2025-10-14 13:05:35.432905",
+          "id": 8,
+          "request_data": "Manual join record - user already had VIP role when recorded",
+          "request_type": "manual_record",
+          "staff_id": 316652790560587776,
+          "status": "completed",
+          "updated_at": "2025-10-14 13:05:35.485357",
+          "user_id": 496020547067576329,
+          "username": "danoxford02",
+          "vantage_email": null
+        },
+        {
+          "created_at": "2025-10-14 13:05:46.660145",
+          "id": 9,
+          "request_data": "Manual join record - user already had VIP role when recorded",
+          "request_type": "manual_record",
+          "staff_id": 316652790560587776,
+          "status": "completed",
+          "updated_at": "2025-10-14 13:05:46.706859",
+          "user_id": 1067413729920176138,
+          "username": "dylansmith1882",
+          "vantage_email": null
+        },
+        {
+          "created_at": "2025-10-14 13:06:01.879053",
+          "id": 10,
+          "request_data": "Manual join record - user already had VIP role when recorded",
+          "request_type": "manual_record",
+          "staff_id": 316652790560587776,
+          "status": "pending",
+          "updated_at": "2025-10-14 13:06:01",
+          "user_id": 666332287712886784,
+          "username": "ellisdutton",
+          "vantage_email": null
+        },
+        {
+          "created_at": "2025-10-14 13:34:20.618970",
+          "id": 11,
+          "request_data": "Manual join record - user already had VIP role when recorded",
+          "request_type": "manual_record",
+          "staff_id": 243819020040536065,
+          "status": "completed",
+          "updated_at": "2025-10-14 13:34:20.810405",
+          "user_id": 691018866394005585,
+          "username": "anthonydavis2770",
+          "vantage_email": null
+        },
+        {
+          "created_at": "2025-10-14 13:34:31.449355",
+          "id": 12,
+          "request_data": "Manual join record - user already had VIP role when recorded",
+          "request_type": "manual_record",
+          "staff_id": 243819020040536065,
+          "status": "completed",
+          "updated_at": "2025-10-14 13:34:31.502913",
+          "user_id": 974994910581256293,
+          "username": "outrid3r",
+          "vantage_email": null
+        },
+        {
+          "created_at": "2025-10-14 13:34:47.229800",
+          "id": 13,
+          "request_data": "Manual join record - user already had VIP role when recorded",
+          "request_type": "manual_record",
+          "staff_id": 243819020040536065,
+          "status": "completed",
+          "updated_at": "2025-10-14 13:34:47.410396",
+          "user_id": 362968523364106242,
+          "username": "adamw5",
+          "vantage_email": null
+        },
+        {
+          "created_at": "2025-10-14 13:34:57.750095",
+          "id": 14,
+          "request_data": "Manual join record - user already had VIP role when recorded",
+          "request_type": "manual_record",
+          "staff_id": 243819020040536065,
+          "status": "completed",
+          "updated_at": "2025-10-14 13:34:57.796090",
+          "user_id": 283996648089321473,
+          "username": "big_man_alli_g",
+          "vantage_email": null
+        },
+        {
+          "created_at": "2025-10-19 15:28:40.353824",
+          "id": 15,
+          "request_data": "Manual join record - user already had VIP role when recorded",
+          "request_type": "manual_record",
+          "staff_id": 1346142502587076702,
+          "status": "completed",
+          "updated_at": "2025-10-19 15:28:40.402790",
+          "user_id": 1143692972253266012,
+          "username": "lucaedz",
+          "vantage_email": null
+        }
+      ]
+    },
+    "message": "Retrieved Discord backup with 3 tables",
+    "status": "success",
+    "table_count": 3,
+    "timestamp": "2025-10-19T16:54:05.795387",
+    "total_records": 46
+  }
+}
