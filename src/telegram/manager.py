@@ -74,7 +74,7 @@ class TelegramAccountManager:
         
         # Configuration
         self.max_concurrent_sessions = int(os.getenv('MAX_CONCURRENT_SESSIONS', '10'))
-        self.session_timeout_hours = int(os.getenv('VIP_SESSION_TIMEOUT_HOURS', '24'))
+        self.session_timeout_hours = int(os.getenv('VIP_SESSION_TIMEOUT_HOURS', '72'))
         self.va_username = os.getenv('TELEGRAM_VA_USERNAME', '')
         
         logger.info(f"🔐 Telegram Account Manager initialized")

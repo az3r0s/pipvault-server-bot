@@ -52,6 +52,7 @@ class VIPSessionManager(commands.Cog):
         self.VIP_ROLE_ID = os.getenv('VIP_ROLE_ID', '0')
         self.TELEGRAM_VA_USERNAME = os.getenv('TELEGRAM_VA_USERNAME', '')
         self.VA_DISCORD_USER_ID = int(os.getenv('VA_DISCORD_USER_ID', '0'))  # Your Discord user ID
+        self.session_timeout_hours = int(os.getenv('VIP_SESSION_TIMEOUT_HOURS', '72'))  # Session timeout
         
         # Start cleanup task
         self.cleanup_expired_sessions.start()
@@ -174,7 +175,7 @@ class VIPSessionManager(commands.Cog):
                 value=(
                     "• Send a message in this chat to begin your VIP upgrade consultation\n"
                     "• Our staff team will respond to you shortly\n"
-                    "• This session will remain active for 24 hours\n"
+                    f"• This session will remain active for {self.session_timeout_hours} hours\n"
                     "• Type `!end` to complete your session early"
                 ),
                 inline=False
@@ -204,7 +205,7 @@ class VIPSessionManager(commands.Cog):
                     "• Click the thread link above to enter your chat\n"
                     "• Messages you send will be handled by our staff team\n"
                     "• Get personalized VIP upgrade assistance\n"
-                    "• Session active for 24 hours"
+                    f"• Session active for {self.session_timeout_hours} hours"
                 ),
                 inline=False
             )
@@ -604,7 +605,7 @@ class VIPSessionManager(commands.Cog):
                     # Check if thread still exists and get creation time
                     if thread.created_at:
                         age = current_time - thread.created_at.replace(tzinfo=None)
-                        if age > timedelta(hours=24):  # 24 hour timeout
+                        if age > timedelta(hours=self.session_timeout_hours):  # Configurable timeout
                             expired_threads.append(user_id)
                 except:
                     # Thread no longer exists

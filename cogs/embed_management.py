@@ -1,14 +1,23 @@
 from typing import Optional
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord import app_commands
 import logging
+import os
+from datetime import datetime, time, timezone
 
 logger = logging.getLogger(__name__)
 
 class EmbedManagement(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        
+        # Configuration
+        self.FREE_SIGNALS_CHANNEL_ID = int(os.getenv('FREE_SIGNALS_CHANNEL_ID', '0'))
+        self.VIP_UPGRADE_CHANNEL_ID = int(os.getenv('VIP_UPGRADE_CHANNEL_ID', '1420009598709923963'))
+        
+        # Start weekly CTA task
+        self.weekly_cta_task.start()
 
     def check_admin_permissions(self, interaction: discord.Interaction) -> bool:
         """Check if user has admin permissions"""
@@ -762,6 +771,111 @@ Check our **results channels** for real VIP performance data!
         await channel.send(embed=embed5)
         await channel.send(embed=embed6)
         await channel.send(embed=embed7)
+
+    @app_commands.command(name="post_cta_embed", description="Post the CTA (Call to Action) embed to specified channel")
+    @app_commands.describe(channel="Channel to post the CTA embed in")
+    async def post_cta_embed(self, interaction: discord.Interaction, channel: Optional[discord.TextChannel] = None):
+        """Post the CTA embed to the specified channel"""
+        
+        if not self.check_admin_permissions(interaction):
+            await interaction.response.send_message("❌ You need administrator permissions to use this command.", ephemeral=True)
+            return
+
+        target_channel = channel or interaction.channel
+        await interaction.response.defer(ephemeral=True)
+
+        try:
+            await self.send_cta_embed(target_channel)
+            await interaction.followup.send(f"✅ CTA embed posted successfully to {target_channel.name if hasattr(target_channel, 'name') else 'the channel'}!", ephemeral=True)
+        except Exception as e:
+            await interaction.followup.send(f"❌ Failed to post CTA embed: {str(e)}", ephemeral=True)
+
+    async def send_cta_embed(self, channel):
+        """Send CTA embed to the specified channel"""
+        
+        # Create the CTA embed
+        embed = discord.Embed(
+            title="🚀 HOW TO START COPY TRADING NOW",
+            description=(
+                "We've made it simpler than ever to get started and join the Pipvault **FREE VIP Group**, where you'll get access to:\n\n"
+                "✅ 5-7+ high quality trades per day\n"
+                "✅ 85% success rate on gold signals\n"
+                "✅ Step-by-step guidance on how to take the trades\n"
+                "✅ Weekly mindset coaching\n"
+                "✅ Trusted broker partnership for your security\n\n"
+                "And the best part:\n"
+                "**❌ No setup costs**\n"
+                "**❌ No monthly fees**\n"
+                "**❌ No contracts ever**\n\n"
+                "Here's how to get started:\n\n"
+                "1️⃣ Click the **'JOIN FREE'** button under this message to begin setup\n"
+                "2️⃣ Follow along in the support chat and complete each step\n"
+                "3️⃣ Once you're done and verified, our team will contact you to bring you into the VIP Group.\n\n"
+                "(As always, this is NOT financial advice and past profits do not guarantee future results)\n\n"
+                "**👇 Tap below to start now!**"
+            ),
+            color=discord.Color.gold()
+        )
+        
+        # Create the JOIN FREE button
+        class CTAView(discord.ui.View):
+            def __init__(self, vip_upgrade_channel_id: int):
+                super().__init__(timeout=None)
+                self.vip_upgrade_channel_id = vip_upgrade_channel_id
+            
+            @discord.ui.button(label='JOIN FREE', style=discord.ButtonStyle.success, emoji='🚀')
+            async def join_free_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+                try:
+                    # Get the VIP upgrade channel
+                    vip_channel = interaction.guild.get_channel(self.vip_upgrade_channel_id)
+                    if not vip_channel:
+                        await interaction.response.send_message("❌ VIP upgrade channel not found. Please contact support.", ephemeral=True)
+                        return
+                    
+                    # Create embed response
+                    response_embed = discord.Embed(
+                        title="🎯 VIP Upgrade Started!",
+                        description=(
+                            f"Great choice! Head over to {vip_channel.mention} to begin your VIP upgrade process.\n\n"
+                            "Our team is ready to help you get started with copy trading and access to our premium signals!"
+                        ),
+                        color=discord.Color.green()
+                    )
+                    
+                    await interaction.response.send_message(embed=response_embed, ephemeral=True)
+                    
+                except Exception as e:
+                    logger.error(f"Error in CTA button click: {e}")
+                    await interaction.response.send_message("❌ Something went wrong. Please try again or contact support.", ephemeral=True)
+        
+        # Send the embed with the button
+        view = CTAView(self.VIP_UPGRADE_CHANNEL_ID)
+        await channel.send(embed=embed, view=view)
+
+    @tasks.loop(hours=168)  # 168 hours = 1 week
+    async def weekly_cta_task(self):
+        """Automatically post CTA embed weekly"""
+        try:
+            if self.FREE_SIGNALS_CHANNEL_ID and self.FREE_SIGNALS_CHANNEL_ID != 0:
+                channel = self.bot.get_channel(self.FREE_SIGNALS_CHANNEL_ID)
+                if channel:
+                    await self.send_cta_embed(channel)
+                    logger.info(f"✅ Weekly CTA embed posted to {channel.name}")
+                else:
+                    logger.warning(f"⚠️ Free signals channel {self.FREE_SIGNALS_CHANNEL_ID} not found")
+            else:
+                logger.warning("⚠️ FREE_SIGNALS_CHANNEL_ID not configured for weekly CTA task")
+        except Exception as e:
+            logger.error(f"❌ Error in weekly CTA task: {e}")
+
+    @weekly_cta_task.before_loop
+    async def before_weekly_cta_task(self):
+        """Wait until the bot is ready before starting the task"""
+        await self.bot.wait_until_ready()
+
+    async def cog_unload(self):
+        """Cancel tasks when cog is unloaded"""
+        self.weekly_cta_task.cancel()
 
 async def setup(bot):
     await bot.add_cog(EmbedManagement(bot))

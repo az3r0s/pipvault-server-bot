@@ -19,7 +19,7 @@ class StaffVIPApprovalView(discord.ui.View):
     """View for staff to approve/deny VIP requests from DMs"""
     
     def __init__(self, request_id: int, user_id: int, user_name: str):
-        super().__init__(timeout=86400)  # 24 hour timeout
+        super().__init__(timeout=259200)  # 72 hour timeout
         self.request_id = request_id
         self.user_id = user_id
         self.user_name = user_name
