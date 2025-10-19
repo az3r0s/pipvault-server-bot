@@ -817,39 +817,24 @@ Check our **results channels** for real VIP performance data!
             color=discord.Color.gold()
         )
         
-        # Create the JOIN FREE button
+        # Create the JOIN FREE button as a URL button that directly opens the channel
         class CTAView(discord.ui.View):
-            def __init__(self, vip_upgrade_channel_id: int):
+            def __init__(self, vip_upgrade_channel_id: int, guild_id: int):
                 super().__init__(timeout=None)
-                self.vip_upgrade_channel_id = vip_upgrade_channel_id
-            
-            @discord.ui.button(label='JOIN FREE', style=discord.ButtonStyle.success, emoji='🚀')
-            async def join_free_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-                try:
-                    # Get the VIP upgrade channel
-                    vip_channel = interaction.guild.get_channel(self.vip_upgrade_channel_id)
-                    if not vip_channel:
-                        await interaction.response.send_message("❌ VIP upgrade channel not found. Please contact support.", ephemeral=True)
-                        return
-                    
-                    # Create embed response
-                    response_embed = discord.Embed(
-                        title="🎯 VIP Upgrade Started!",
-                        description=(
-                            f"Great choice! Head over to {vip_channel.mention} to begin your VIP upgrade process.\n\n"
-                            "Our team is ready to help you get started with copy trading and access to our premium signals!"
-                        ),
-                        color=discord.Color.green()
-                    )
-                    
-                    await interaction.response.send_message(embed=response_embed, ephemeral=True)
-                    
-                except Exception as e:
-                    logger.error(f"Error in CTA button click: {e}")
-                    await interaction.response.send_message("❌ Something went wrong. Please try again or contact support.", ephemeral=True)
+                # Create a URL button that directly opens the VIP upgrade channel
+                # Discord channel URL format: https://discord.com/channels/GUILD_ID/CHANNEL_ID
+                channel_url = f"https://discord.com/channels/{guild_id}/{vip_upgrade_channel_id}"
+                
+                self.add_item(discord.ui.Button(
+                    label='JOIN FREE',
+                    style=discord.ButtonStyle.link,
+                    emoji='🚀',
+                    url=channel_url
+                ))
         
         # Send the embed with the button
-        view = CTAView(self.VIP_UPGRADE_CHANNEL_ID)
+        guild_id = channel.guild.id if hasattr(channel, 'guild') and channel.guild else 0
+        view = CTAView(self.VIP_UPGRADE_CHANNEL_ID, guild_id)
         await channel.send(embed=embed, view=view)
 
     @tasks.loop(hours=168)  # 168 hours = 1 week
