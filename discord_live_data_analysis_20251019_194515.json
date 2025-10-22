@@ -1,0 +1,63 @@
+{
+  "capture_timestamp": "2025-10-19T19:45:15.917653",
+  "capture_method": "simulated_discord_api",
+  "staff_members": {
+    "243819020040536065": {
+      "name": "Aidan",
+      "discord_id": 243819020040536065,
+      "username": "thegoldtradingresults",
+      "vantage_referral_link": "https://www.vantagemarkets.com/open-live-account/?affid=NzQ3MDMyMA==",
+      "vantage_ib_code": "7470320",
+      "discord_invite_code": "MISSING",
+      "live_invite_stats": "CANNOT_ACCESS_WITHOUT_INVITE_CODE"
+    },
+    "316652790560587776": {
+      "name": "Travis",
+      "discord_id": 316652790560587776,
+      "username": "tpenn02",
+      "vantage_referral_link": "https://www.vantagemarkets.com/open-live-account/?affid=NzQ3MDI3Mg==",
+      "vantage_ib_code": "7470272",
+      "discord_invite_code": "MISSING",
+      "live_invite_stats": "CANNOT_ACCESS_WITHOUT_INVITE_CODE"
+    },
+    "968961696133705749": {
+      "name": "Cyril",
+      "discord_id": 968961696133705749,
+      "username": "cyril2771753",
+      "vantage_referral_link": "https://vigco.co/ArqURv",
+      "vantage_ib_code": "112077",
+      "discord_invite_code": "MISSING",
+      "live_invite_stats": "CANNOT_ACCESS_WITHOUT_INVITE_CODE"
+    },
+    "1315386250542317732": {
+      "name": "Fin G",
+      "discord_id": 1315386250542317732,
+      "username": "fin05358",
+      "vantage_referral_link": "https://vigco.co/b6JFV3",
+      "vantage_ib_code": "7363640",
+      "discord_invite_code": "MISSING",
+      "live_invite_stats": "CANNOT_ACCESS_WITHOUT_INVITE_CODE"
+    },
+    "1346142502587076702": {
+      "name": "Luca",
+      "discord_id": 1346142502587076702,
+      "username": "luka017515",
+      "vantage_referral_link": "https://vigco.co/jm6rmu",
+      "vantage_ib_code": "4143003",
+      "discord_invite_code": "MISSING",
+      "live_invite_stats": "CANNOT_ACCESS_WITHOUT_INVITE_CODE"
+    },
+    "1143692972253266012": {
+      "name": "Edz",
+      "discord_id": 1143692972253266012,
+      "username": "lucaedz",
+      "vantage_referral_link": "https://www.vantagemarkets.com/open-live-account/?affid=NzM2MzQ4OQ==",
+      "vantage_ib_code": "7363489",
+      "discord_invite_code": "MISSING",
+      "live_invite_stats": "CANNOT_ACCESS_WITHOUT_INVITE_CODE"
+    }
+  },
+  "invite_codes_found": {},
+  "live_invite_data": {},
+  "missing_data_explanation": "\n    EXPLANATION OF MISSING LIVE DATA:\n    \n    The Discord bot shows real invite statistics when running because it:\n    1. Connects to Discord's live API\n    2. Fetches current invite codes for each staff member\n    3. Calculates invite usage in real-time\n    4. Displays current statistics\n    \n    Our backup scripts can't access this data because:\n    1. The invite codes are not stored in the local database\n    2. The invite codes are not in the staff configuration\n    3. The Discord API connection requires the bot to be running\n    4. Live Discord data is not persisted locally\n    \n    TO GET THE REAL DATA:\n    1. Use Discord's /export_staff_invites command (recommended)\n    2. Or run the bot and capture data while it's connected to Discord\n    3. Or add invite codes to the staff configuration manually\n    \n    WHAT WE CAN BACKUP:\n    \u2705 Staff member Discord IDs and usernames\n    \u2705 Vantage referral configuration\n    \u2705 Email templates and channel configuration\n    \u2705 Database structure (ready for invite data)\n    \n    WHAT WE CANNOT BACKUP LOCALLY:\n    \u274c Live Discord invite statistics\n    \u274c Real-time invite usage counts\n    \u274c VIP conversion rates from live data\n    \u274c Current member invite relationships\n    "
+}

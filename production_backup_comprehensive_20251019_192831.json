@@ -1,0 +1,129 @@
+{
+  "backup_timestamp": "20251019_192831",
+  "backup_type": "comprehensive_production_backup",
+  "total_records": 10,
+  "database_count": 2,
+  "databases_backed_up": [
+    "C:\\Users\\aidan\\OneDrive\\Desktop\\Zinrai\\Discord\\microservices\\unified-trading-service\\pipvault-server-bot\\server_management.db",
+    "server_management.db"
+  ],
+  "data": {
+    "database_server_management": {
+      "file_name": "server_management.db",
+      "file_size": 32768,
+      "tables": {
+        "invite_tracking": [
+          {
+            "user_id": 987654321,
+            "username": "TestMember",
+            "invite_code": "ABC123",
+            "inviter_id": 123456789,
+            "inviter_username": "TestUser",
+            "joined_at": "2025-10-19 19:18:32.949607",
+            "invite_uses_before": 5,
+            "invite_uses_after": 6
+          }
+        ],
+        "staff_invites": [],
+        "vip_requests": [
+          {
+            "id": 1,
+            "user_id": 987654321,
+            "username": "TestMember",
+            "request_type": "upgrade",
+            "staff_id": 123456789,
+            "status": "pending",
+            "vantage_email": null,
+            "request_data": "test@example.com",
+            "created_at": "2025-10-19 19:18:32.958405",
+            "updated_at": "2025-10-19 18:18:32"
+          }
+        ],
+        "sqlite_sequence": [
+          {
+            "name": "vip_requests",
+            "seq": 1
+          },
+          {
+            "name": "onboarding_analytics",
+            "seq": 1
+          }
+        ],
+        "onboarding_progress": [],
+        "onboarding_analytics": [
+          {
+            "id": 1,
+            "user_id": "987654321",
+            "event_type": "step_completed",
+            "step_name": "rules",
+            "timestamp": "2025-10-19 18:18:35",
+            "metadata": "{\"test\": true}"
+          }
+        ]
+      },
+      "record_count": 5
+    },
+    "staff_configuration": {
+      "staff_members": {
+        "Aidan": {
+          "discord_id": 243819020040536065,
+          "username": "thegoldtradingresults",
+          "vantage_referral_link": "https://www.vantagemarkets.com/open-live-account/?affid=NzQ3MDMyMA==",
+          "vantage_ib_code": "7470320"
+        },
+        "Travis": {
+          "discord_id": 316652790560587776,
+          "username": "tpenn02",
+          "vantage_referral_link": "https://www.vantagemarkets.com/open-live-account/?affid=NzQ3MDI3Mg==",
+          "vantage_ib_code": "7470272"
+        },
+        "Cyril": {
+          "discord_id": 968961696133705749,
+          "username": "cyril2771753",
+          "vantage_referral_link": "https://vigco.co/ArqURv",
+          "vantage_ib_code": "112077"
+        },
+        "Fin G": {
+          "discord_id": 1315386250542317732,
+          "username": "fin05358",
+          "vantage_referral_link": "https://vigco.co/b6JFV3",
+          "vantage_ib_code": "7363640"
+        },
+        "Luca": {
+          "discord_id": 1346142502587076702,
+          "username": "luka017515",
+          "vantage_referral_link": "https://vigco.co/jm6rmu",
+          "vantage_ib_code": "4143003"
+        },
+        "Edz": {
+          "discord_id": 1143692972253266012,
+          "username": "lucaedz",
+          "vantage_referral_link": "https://www.vantagemarkets.com/open-live-account/?affid=NzM2MzQ4OQ==",
+          "vantage_ib_code": "7363489"
+        }
+      },
+      "email_template": {
+        "recipient": "Hadi.saab@vantagemarkets.com",
+        "subject": "EGN",
+        "body_template": "Hi I am a member of EGN,\n\nPlease move my account under IB {ib_code}.\n\nName:\nEmail:\nLive vantage acc number:\n\nKind regards,\n\nName."
+      },
+      "channels": {
+        "vip_upgrade_channel": "1420009598709923963",
+        "vip_tickets_channel": "1423246972617490473",
+        "staff_notifications_channel": "1423246972617490473"
+      },
+      "roles": {
+        "vip_role": "1401614579850543206"
+      }
+    },
+    "staff_invite_status": {
+      "thegoldtradingresults": null,
+      "tpenn02": null,
+      "cyril2771753": null,
+      "fin05358": null,
+      "luka017515": null,
+      "lucaedz": null
+    },
+    "debug_staff_info": "\u274c No data in staff_invites table"
+  }
+}

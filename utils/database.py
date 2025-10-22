@@ -523,3 +523,137 @@ class ServerDatabase:
         except Exception as e:
             logger.error(f"❌ Error getting staff stats: {e}")
             return {'total_invites': 0, 'vip_conversions': 0, 'pending_requests': 0, 'conversion_rate': 0}
+    
+    # ========================================
+    # ONBOARDING SYSTEM METHODS
+    # ========================================
+    
+    def init_onboarding_progress(self, user_id: str, username: str) -> bool:
+        """Initialize onboarding progress for a new user"""
+        try:
+            conn = sqlite3.connect(self.db_path, timeout=10.0)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                INSERT OR REPLACE INTO onboarding_progress 
+                (user_id, username, step, completed, welcome_reacted, rules_reacted, faq_reacted, chat_introduced, started_at, last_step_at)
+                VALUES (?, ?, 1, 0, 0, 0, 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            ''', (user_id, username))
+            
+            conn.commit()
+            conn.close()
+            
+            logger.info(f"✅ Initialized onboarding progress for {username} ({user_id})")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize onboarding progress: {e}")
+            return False
+    
+    def update_onboarding_step(self, user_id: str, step_name: str) -> bool:
+        """Update user's onboarding progress"""
+        try:
+            conn = sqlite3.connect(self.db_path, timeout=10.0)
+            cursor = conn.cursor()
+            
+            # Update the specific step
+            if step_name == "welcome_react":
+                cursor.execute('''
+                    UPDATE onboarding_progress 
+                    SET welcome_reacted = 1, step = 2, last_step_at = CURRENT_TIMESTAMP
+                    WHERE user_id = ?
+                ''', (user_id,))
+            elif step_name == "rules_react":
+                cursor.execute('''
+                    UPDATE onboarding_progress 
+                    SET rules_reacted = 1, step = 3, last_step_at = CURRENT_TIMESTAMP
+                    WHERE user_id = ?
+                ''', (user_id,))
+            elif step_name == "faq_react":
+                cursor.execute('''
+                    UPDATE onboarding_progress 
+                    SET faq_reacted = 1, step = 4, last_step_at = CURRENT_TIMESTAMP
+                    WHERE user_id = ?
+                ''', (user_id,))
+            elif step_name == "chat_intro":
+                cursor.execute('''
+                    UPDATE onboarding_progress 
+                    SET chat_introduced = 1, completed = 1, completed_at = CURRENT_TIMESTAMP, last_step_at = CURRENT_TIMESTAMP
+                    WHERE user_id = ?
+                ''', (user_id,))
+            
+            conn.commit()
+            conn.close()
+            
+            logger.info(f"✅ Updated onboarding step {step_name} for user {user_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to update onboarding step: {e}")
+            return False
+    
+    def log_onboarding_event(self, user_id: str, event_type: str, step_name: str, metadata: Optional[dict] = None) -> bool:
+        """Log onboarding analytics event"""
+        try:
+            conn = sqlite3.connect(self.db_path, timeout=10.0)
+            cursor = conn.cursor()
+            
+            import json
+            metadata_json = json.dumps(metadata) if metadata else None
+            
+            cursor.execute('''
+                INSERT INTO onboarding_analytics (user_id, event_type, step_name, metadata)
+                VALUES (?, ?, ?, ?)
+            ''', (user_id, event_type, step_name, metadata_json))
+            
+            conn.commit()
+            conn.close()
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to log onboarding event: {e}")
+            return False
+    
+    def get_onboarding_stats(self) -> dict:
+        """Get onboarding completion statistics"""
+        try:
+            conn = sqlite3.connect(self.db_path, timeout=10.0)
+            cursor = conn.cursor()
+            
+            # Get completion stats
+            cursor.execute('SELECT COUNT(*) FROM onboarding_progress')
+            total_started = cursor.fetchone()[0]
+            
+            cursor.execute('SELECT COUNT(*) FROM onboarding_progress WHERE completed = 1')
+            total_completed = cursor.fetchone()[0]
+            
+            cursor.execute('SELECT COUNT(*) FROM onboarding_progress WHERE step = 2')
+            step2_count = cursor.fetchone()[0]
+            
+            cursor.execute('SELECT COUNT(*) FROM onboarding_progress WHERE step = 3')
+            step3_count = cursor.fetchone()[0]
+            
+            cursor.execute('SELECT COUNT(*) FROM onboarding_progress WHERE step = 4')
+            step4_count = cursor.fetchone()[0]
+            
+            conn.close()
+            
+            completion_rate = (total_completed / total_started * 100) if total_started > 0 else 0
+            
+            return {
+                'total_started': total_started,
+                'total_completed': total_completed,
+                'completion_rate': completion_rate,
+                'step_breakdown': {
+                    'step_1_welcome': total_started - step2_count - step3_count - step4_count - total_completed,
+                    'step_2_rules': step2_count,
+                    'step_3_faq': step3_count,
+                    'step_4_chat': step4_count,
+                    'completed': total_completed
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting onboarding stats: {e}")
+            return {'total_started': 0, 'total_completed': 0, 'completion_rate': 0, 'step_breakdown': {}}

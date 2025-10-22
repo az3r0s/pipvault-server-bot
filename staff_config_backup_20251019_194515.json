@@ -1,0 +1,96 @@
+{
+  "backup_timestamp": "2025-10-19T19:45:15.929269",
+  "backup_type": "staff_configuration_only",
+  "staff_members": {
+    "Aidan": {
+      "discord_id": 243819020040536065,
+      "username": "thegoldtradingresults",
+      "vantage_referral_link": "https://www.vantagemarkets.com/open-live-account/?affid=NzQ3MDMyMA==",
+      "vantage_ib_code": "7470320"
+    },
+    "Travis": {
+      "discord_id": 316652790560587776,
+      "username": "tpenn02",
+      "vantage_referral_link": "https://www.vantagemarkets.com/open-live-account/?affid=NzQ3MDI3Mg==",
+      "vantage_ib_code": "7470272"
+    },
+    "Cyril": {
+      "discord_id": 968961696133705749,
+      "username": "cyril2771753",
+      "vantage_referral_link": "https://vigco.co/ArqURv",
+      "vantage_ib_code": "112077"
+    },
+    "Fin G": {
+      "discord_id": 1315386250542317732,
+      "username": "fin05358",
+      "vantage_referral_link": "https://vigco.co/b6JFV3",
+      "vantage_ib_code": "7363640"
+    },
+    "Luca": {
+      "discord_id": 1346142502587076702,
+      "username": "luka017515",
+      "vantage_referral_link": "https://vigco.co/jm6rmu",
+      "vantage_ib_code": "4143003"
+    },
+    "Edz": {
+      "discord_id": 1143692972253266012,
+      "username": "lucaedz",
+      "vantage_referral_link": "https://www.vantagemarkets.com/open-live-account/?affid=NzM2MzQ4OQ==",
+      "vantage_ib_code": "7363489"
+    }
+  },
+  "config_data": {
+    "staff_members": {
+      "Aidan": {
+        "discord_id": 243819020040536065,
+        "username": "thegoldtradingresults",
+        "vantage_referral_link": "https://www.vantagemarkets.com/open-live-account/?affid=NzQ3MDMyMA==",
+        "vantage_ib_code": "7470320"
+      },
+      "Travis": {
+        "discord_id": 316652790560587776,
+        "username": "tpenn02",
+        "vantage_referral_link": "https://www.vantagemarkets.com/open-live-account/?affid=NzQ3MDI3Mg==",
+        "vantage_ib_code": "7470272"
+      },
+      "Cyril": {
+        "discord_id": 968961696133705749,
+        "username": "cyril2771753",
+        "vantage_referral_link": "https://vigco.co/ArqURv",
+        "vantage_ib_code": "112077"
+      },
+      "Fin G": {
+        "discord_id": 1315386250542317732,
+        "username": "fin05358",
+        "vantage_referral_link": "https://vigco.co/b6JFV3",
+        "vantage_ib_code": "7363640"
+      },
+      "Luca": {
+        "discord_id": 1346142502587076702,
+        "username": "luka017515",
+        "vantage_referral_link": "https://vigco.co/jm6rmu",
+        "vantage_ib_code": "4143003"
+      },
+      "Edz": {
+        "discord_id": 1143692972253266012,
+        "username": "lucaedz",
+        "vantage_referral_link": "https://www.vantagemarkets.com/open-live-account/?affid=NzM2MzQ4OQ==",
+        "vantage_ib_code": "7363489"
+      }
+    },
+    "email_template": {
+      "recipient": "Hadi.saab@vantagemarkets.com",
+      "subject": "EGN",
+      "body_template": "Hi I am a member of EGN,\n\nPlease move my account under IB {ib_code}.\n\nName:\nEmail:\nLive vantage acc number:\n\nKind regards,\n\nName."
+    },
+    "channels": {
+      "vip_upgrade_channel": "1420009598709923963",
+      "vip_tickets_channel": "1423246972617490473",
+      "staff_notifications_channel": "1423246972617490473"
+    },
+    "roles": {
+      "vip_role": "1401614579850543206"
+    }
+  },
+  "note": "This backup contains staff configuration but not live Discord invite data"
+}

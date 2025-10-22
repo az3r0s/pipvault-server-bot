@@ -1,0 +1,117 @@
+{
+  "backup_timestamp": "2025-10-19T19:50:41.308186",
+  "backup_type": "production_with_real_invite_data",
+  "source": "discord_list_staff_invites_command_output",
+  "staff_configurations": [
+    {
+      "staff_id": 1346142502587076702,
+      "staff_username": null,
+      "invite_code": "6epsPRmKHK",
+      "vantage_referral_link": null,
+      "created_at": "2025-10-19 18:50:40"
+    },
+    {
+      "staff_id": 968961696133705749,
+      "staff_username": null,
+      "invite_code": "WkEPppmUqH",
+      "vantage_referral_link": null,
+      "created_at": "2025-10-19 18:50:39"
+    },
+    {
+      "staff_id": 1315386250542317732,
+      "staff_username": null,
+      "invite_code": "M4gMA8Rs5w",
+      "vantage_referral_link": null,
+      "created_at": "2025-10-19 18:50:39"
+    },
+    {
+      "staff_id": 316652790560587776,
+      "staff_username": null,
+      "invite_code": "3PzvV2ME3u",
+      "vantage_referral_link": null,
+      "created_at": "2025-10-19 18:50:38"
+    },
+    {
+      "staff_id": 243819020040536065,
+      "staff_username": null,
+      "invite_code": "3EAgVbYhEz",
+      "vantage_referral_link": null,
+      "created_at": "2025-10-19 18:50:37"
+    },
+    {
+      "staff_id": 1143692972253266012,
+      "staff_username": null,
+      "invite_code": "9qbs6Hf27v",
+      "vantage_referral_link": null,
+      "created_at": "2025-10-19 18:50:36"
+    }
+  ],
+  "detailed_stats": {
+    "1346142502587076702": {
+      "staff_username": null,
+      "invite_code": "6epsPRmKHK",
+      "stats": {
+        "total_invites": 1,
+        "vip_conversions": 0,
+        "pending_requests": 0,
+        "conversion_rate": 0.0
+      }
+    },
+    "968961696133705749": {
+      "staff_username": null,
+      "invite_code": "WkEPppmUqH",
+      "stats": {
+        "total_invites": 0,
+        "vip_conversions": 0,
+        "pending_requests": 0,
+        "conversion_rate": 0
+      }
+    },
+    "1315386250542317732": {
+      "staff_username": null,
+      "invite_code": "M4gMA8Rs5w",
+      "stats": {
+        "total_invites": 5,
+        "vip_conversions": 0,
+        "pending_requests": 0,
+        "conversion_rate": 0.0
+      }
+    },
+    "316652790560587776": {
+      "staff_username": null,
+      "invite_code": "3PzvV2ME3u",
+      "stats": {
+        "total_invites": 10,
+        "vip_conversions": 0,
+        "pending_requests": 0,
+        "conversion_rate": 0.0
+      }
+    },
+    "243819020040536065": {
+      "staff_username": null,
+      "invite_code": "3EAgVbYhEz",
+      "stats": {
+        "total_invites": 5,
+        "vip_conversions": 0,
+        "pending_requests": 0,
+        "conversion_rate": 0.0
+      }
+    },
+    "1143692972253266012": {
+      "staff_username": null,
+      "invite_code": "9qbs6Hf27v",
+      "stats": {
+        "total_invites": 3,
+        "vip_conversions": 0,
+        "pending_requests": 0,
+        "conversion_rate": 0.0
+      }
+    }
+  },
+  "summary": {
+    "total_staff": 6,
+    "total_invites": 24,
+    "total_vip_conversions": 0,
+    "overall_conversion_rate": 0.0
+  }
+}

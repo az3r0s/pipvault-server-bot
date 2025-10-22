@@ -1,0 +1,146 @@
+{
+  "backup_timestamp": "2025-10-19T19:38:26.109232",
+  "backup_type": "enhanced_with_relationships",
+  "staff_members": {
+    "243819020040536065": {
+      "discord_id": 243819020040536065,
+      "username": "thegoldtradingresults",
+      "invite_code": null,
+      "email_template": "",
+      "total_invites": 0,
+      "vip_converts": 0,
+      "invite_rate": 0.0,
+      "invited_members": []
+    },
+    "316652790560587776": {
+      "discord_id": 316652790560587776,
+      "username": "tpenn02",
+      "invite_code": null,
+      "email_template": "",
+      "total_invites": 0,
+      "vip_converts": 0,
+      "invite_rate": 0.0,
+      "invited_members": []
+    },
+    "968961696133705749": {
+      "discord_id": 968961696133705749,
+      "username": "cyril2771753",
+      "invite_code": null,
+      "email_template": "",
+      "total_invites": 0,
+      "vip_converts": 0,
+      "invite_rate": 0.0,
+      "invited_members": []
+    },
+    "1315386250542317732": {
+      "discord_id": 1315386250542317732,
+      "username": "fin05358",
+      "invite_code": null,
+      "email_template": "",
+      "total_invites": 0,
+      "vip_converts": 0,
+      "invite_rate": 0.0,
+      "invited_members": []
+    },
+    "1346142502587076702": {
+      "discord_id": 1346142502587076702,
+      "username": "luka017515",
+      "invite_code": null,
+      "email_template": "",
+      "total_invites": 0,
+      "vip_converts": 0,
+      "invite_rate": 0.0,
+      "invited_members": []
+    },
+    "1143692972253266012": {
+      "discord_id": 1143692972253266012,
+      "username": "lucaedz",
+      "invite_code": null,
+      "email_template": "",
+      "total_invites": 0,
+      "vip_converts": 0,
+      "invite_rate": 0.0,
+      "invited_members": []
+    }
+  },
+  "invite_relationships": [
+    {
+      "invited_user_id": "987654321",
+      "invited_username": "TestMember",
+      "inviter_id": "123456789",
+      "inviter_username": "TestUser",
+      "invite_code": "ABC123",
+      "joined_at": "2025-10-19 19:18:32.949607",
+      "invite_uses_before": 5,
+      "invite_uses_after": 6
+    }
+  ],
+  "vip_conversions": [
+    {
+      "user_id": "987654321",
+      "username": "TestMember",
+      "staff_id": "123456789",
+      "request_type": "upgrade",
+      "status": "pending",
+      "vantage_email": null,
+      "created_at": "2025-10-19 19:18:32.958405",
+      "updated_at": "2025-10-19 18:18:32"
+    }
+  ],
+  "member_tracking": [],
+  "raw_database_data": {
+    "staff_invites": [],
+    "invite_tracking": [
+      {
+        "user_id": 987654321,
+        "username": "TestMember",
+        "invite_code": "ABC123",
+        "inviter_id": 123456789,
+        "inviter_username": "TestUser",
+        "joined_at": "2025-10-19 19:18:32.949607",
+        "invite_uses_before": 5,
+        "invite_uses_after": 6
+      }
+    ],
+    "vip_requests": [
+      {
+        "id": 1,
+        "user_id": 987654321,
+        "username": "TestMember",
+        "request_type": "upgrade",
+        "staff_id": 123456789,
+        "status": "pending",
+        "vantage_email": null,
+        "request_data": "test@example.com",
+        "created_at": "2025-10-19 19:18:32.958405",
+        "updated_at": "2025-10-19 18:18:32"
+      }
+    ],
+    "onboarding_progress": [],
+    "onboarding_analytics": [
+      {
+        "id": 1,
+        "user_id": "987654321",
+        "event_type": "step_completed",
+        "step_name": "rules",
+        "timestamp": "2025-10-19 18:18:35",
+        "metadata": "{\"test\": true}"
+      }
+    ]
+  },
+  "staff_invite_status": {
+    "thegoldtradingresults": null,
+    "tpenn02": null,
+    "cyril2771753": null,
+    "fin05358": null,
+    "luka017515": null,
+    "lucaedz": null
+  },
+  "debug_staff_info": "\u274c No data in staff_invites table",
+  "summary": {
+    "total_staff_members": 6,
+    "total_invites_tracked": 0,
+    "total_vip_conversions": 0,
+    "overall_vip_rate": 0
+  }
+}

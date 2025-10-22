@@ -118,6 +118,7 @@ class ZinraiServerBot(commands.Bot):
             'cogs.embed_management',
             'cogs.vip_session_manager',
             'cogs.database_export',
+            'cogs.welcome_screen',
         ]
         
         for cog in cogs_to_load:

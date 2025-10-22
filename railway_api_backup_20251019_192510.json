@@ -1,0 +1,54 @@
+{
+  "invite_tracking": [
+    {
+      "invite_code": "ABC123",
+      "invite_uses_after": 6,
+      "invite_uses_before": 5,
+      "inviter_id": 123456789,
+      "inviter_username": "TestUser",
+      "joined_at": "2025-10-19 19:18:32.949607",
+      "user_id": 987654321,
+      "username": "TestMember"
+    }
+  ],
+  "onboarding_analytics": [
+    {
+      "event_type": "step_completed",
+      "id": 1,
+      "metadata": "{\"test\": true}",
+      "step_name": "rules",
+      "timestamp": "2025-10-19 18:18:35",
+      "user_id": "987654321"
+    }
+  ],
+  "onboarding_progress": [
+    {
+      "chat_introduced": 0,
+      "completed": 0,
+      "completed_at": null,
+      "faq_reacted": 0,
+      "last_step_at": "2025-10-19 18:18:33",
+      "rules_reacted": 0,
+      "started_at": "2025-10-19 18:18:33",
+      "step": 1,
+      "user_id": "987654321",
+      "username": "TestMember",
+      "welcome_reacted": 0
+    }
+  ],
+  "staff_invites": [],
+  "vip_requests": [
+    {
+      "created_at": "2025-10-19 19:18:32.958405",
+      "id": 1,
+      "request_data": "test@example.com",
+      "request_type": "upgrade",
+      "staff_id": 123456789,
+      "status": "pending",
+      "updated_at": "2025-10-19 18:18:32",
+      "user_id": 987654321,
+      "username": "TestMember",
+      "vantage_email": null
+    }
+  ]
+}
