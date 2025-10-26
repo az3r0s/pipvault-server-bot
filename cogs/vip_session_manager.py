@@ -384,11 +384,6 @@ class VIPSessionManager(commands.Cog):
                 
         except Exception as notification_error:
             logger.error(f"❌ Failed to send staff notification in thread: {notification_error}")
-            else:
-                logger.error(f"❌ Could not find staff user {staff_id} to notify about VIP session issue")
-                
-        except Exception as e:
-            logger.error(f"❌ Error sending staff notification: {e}")
 
     async def _send_va_referral_message(self, user_id: str, discord_user: discord.Member, referring_staff: Optional[Dict]):
         """Send automatic referral message to VA when a new chat session is created"""
