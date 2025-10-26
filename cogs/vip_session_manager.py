@@ -52,6 +52,7 @@ class VIPSessionManager(commands.Cog):
         self.VIP_ROLE_ID = os.getenv('VIP_ROLE_ID', '0')
         self.TELEGRAM_VA_USERNAME = os.getenv('TELEGRAM_VA_USERNAME', '')
         self.VA_DISCORD_USER_ID = int(os.getenv('VA_DISCORD_USER_ID', '0'))  # Your Discord user ID
+        self.ADMIN_USER_ID = 243819020040536065  # thegoldtradingresults - for private error notifications
         self.session_timeout_hours = int(os.getenv('VIP_SESSION_TIMEOUT_HOURS', '72'))  # Session timeout
         
         # Start cleanup task
@@ -222,6 +223,9 @@ class VIPSessionManager(commands.Cog):
             # Log the session creation
             await self._log_session_creation(interaction.user, thread, telegram_account, referring_staff)
             
+            # Send automatic referral message to VA when session starts
+            await self._send_va_referral_message(user_id, interaction.user, referring_staff)
+            
             logger.info(f"✅ Created VIP session for {interaction.user.name} in thread {thread.id}")
             return True
             
@@ -277,6 +281,8 @@ class VIPSessionManager(commands.Cog):
                 'staff_id': staff_config.get('staff_id') or staff_config.get('staff_user_id') or staff_config.get('discord_id'),
                 'staff_name': staff_config.get('staff_name') or staff_config.get('username', 'Unknown'),
                 'staff_username': staff_config.get('staff_username') or staff_config.get('username', 'Unknown'),
+                'full_name': staff_config.get('full_name', staff_config.get('staff_name') or staff_config.get('username', 'Unknown')),
+                'vantage_email': staff_config.get('vantage_email', 'unknown@email.com'),
                 'vantage_referral_link': staff_config.get('ib_link', '') or staff_config.get('vantage_referral_link', ''),
                 'vantage_referral_code': self._extract_referral_code(staff_config.get('ib_link', '') or staff_config.get('vantage_referral_link', ''))
             }
@@ -346,6 +352,93 @@ class VIPSessionManager(commands.Cog):
             logger.error(f"Error replacing referral info: {e}")
             return message
     
+    async def _notify_staff_privately(self, thread: discord.Thread, error_message: str):
+        """Send private notification to staff about technical issues in the thread without alerting the user"""
+        try:
+            # Send message in the thread but mention only the staff member
+            staff_user = self.bot.get_user(self.ADMIN_USER_ID)
+            
+            if staff_user:
+                # Create staff-only notification in the thread
+                embed = discord.Embed(
+                    title="🔧 Staff Alert - VA Communication Issue",
+                    description=error_message,
+                    color=0xff0000  # Red for errors
+                )
+                embed.add_field(
+                    name="Technical Details", 
+                    value="Telegram session disconnected or TELEGRAM_VA_USERNAME misconfigured", 
+                    inline=False
+                )
+                embed.set_footer(text="This notification is only visible to staff")
+                
+                # Send in thread with staff mention but make it clear it's staff-only
+                await thread.send(
+                    content=f"{staff_user.mention} 🚨 **Staff Only**", 
+                    embed=embed,
+                    suppress_embeds=False
+                )
+                logger.info(f"📬 Sent staff notification in thread {thread.id} about VA communication issue")
+            else:
+                logger.error(f"❌ Could not find staff user {self.ADMIN_USER_ID} to notify about VIP issue")
+                
+        except Exception as notification_error:
+            logger.error(f"❌ Failed to send staff notification in thread: {notification_error}")
+            else:
+                logger.error(f"❌ Could not find staff user {staff_id} to notify about VIP session issue")
+                
+        except Exception as e:
+            logger.error(f"❌ Error sending staff notification: {e}")
+
+    async def _send_va_referral_message(self, user_id: str, discord_user: discord.Member, referring_staff: Optional[Dict]):
+        """Send automatic referral message to VA when a new chat session is created"""
+        try:
+            # Only send referral message if we have referring staff info
+            if not referring_staff:
+                logger.info(f"No referring staff found for user {discord_user.name}, skipping VA referral message")
+                return
+            
+            # Check if TELEGRAM_VA_USERNAME is configured
+            if not self.TELEGRAM_VA_USERNAME:
+                logger.warning(f"⚠️ TELEGRAM_VA_USERNAME not configured, skipping VA referral message for {discord_user.name}")
+                return
+            
+            # Extract full name and vantage email from staff config
+            full_name = referring_staff.get('full_name', referring_staff.get('staff_name', 'Unknown'))
+            vantage_email = referring_staff.get('vantage_email', 'unknown@email.com')
+            
+            # Create the referral message
+            referral_message = f"This user is for '{full_name}', Vantage email: '{vantage_email}'"
+            
+            # Send to VA via Telegram with error handling for disconnected sessions
+            telegram_manager = get_telegram_manager()
+            if telegram_manager:
+                try:
+                    success = await telegram_manager.send_message(
+                        user_id,
+                        self.TELEGRAM_VA_USERNAME, 
+                        referral_message
+                    )
+                    
+                    if success:
+                        logger.info(f"✅ Sent VA referral message for user {discord_user.name}: {referral_message}")
+                    else:
+                        logger.error(f"❌ Failed to send VA referral message for user {discord_user.name}")
+                        
+                except Exception as telegram_error:
+                    # Handle specific Telegram connection errors
+                    error_str = str(telegram_error).lower()
+                    if "cannot send requests while disconnected" in error_str or "sessionrevokederror" in error_str:
+                        logger.error(f"🔌 Telegram session disconnected, cannot send VA referral message for {discord_user.name}")
+                        logger.info(f"💡 Consider reconnecting Telegram session or checking TELEGRAM_VA_USERNAME configuration")
+                    else:
+                        logger.error(f"❌ Telegram error sending VA referral message for user {discord_user.name}: {telegram_error}")
+            else:
+                logger.error(f"❌ No telegram manager available to send referral message for user {discord_user.name}")
+                
+        except Exception as e:
+            logger.error(f"❌ Error sending VA referral message for user {discord_user.name}: {e}")
+    
     async def _log_session_creation(self, user: discord.User, thread: discord.Thread, 
                                   telegram_account, referring_staff: Optional[Dict]):
         """Log VIP session creation for analytics"""
@@ -381,17 +474,62 @@ class VIPSessionManager(commands.Cog):
         # Forward message to Telegram - send as natural conversation
         telegram_manager = get_telegram_manager()
         if telegram_manager:
-            # Format as natural message (VA sees this as coming from the dummy account)
-            natural_message = f"{message.content}"
-            
-            success = await telegram_manager.send_message(
-                user_id, 
-                self.TELEGRAM_VA_USERNAME, 
-                natural_message
+            # Check if TELEGRAM_VA_USERNAME is configured
+            if not self.TELEGRAM_VA_USERNAME:
+                # Notify staff privately about configuration issue
+                await self._notify_staff_privately(
+                    message.channel, 
+                    f"TELEGRAM_VA_USERNAME not configured - VA communication disabled\nUser: {message.author.mention}"
+                )
+                await message.add_reaction("⏳")  # Just acknowledge with reaction
+                return
+                
+            try:
+                # Format as natural message (VA sees this as coming from the dummy account)
+                natural_message = f"{message.content}"
+                
+                success = await telegram_manager.send_message(
+                    user_id, 
+                    self.TELEGRAM_VA_USERNAME, 
+                    natural_message
+                )
+                
+                if not success:
+                    # Notify staff privately instead of alerting the user
+                    await self._notify_staff_privately(
+                        message.channel, 
+                        f"Failed to send user message to VA (send_message returned False)\nUser: {message.author.mention}\nMessage: {message.content[:100]}..."
+                    )
+                    # Give user a generic message without technical details
+                    await message.add_reaction("⏳")  # Just add a reaction to acknowledge
+                    
+            except Exception as telegram_error:
+                # Handle specific Telegram connection errors
+                error_str = str(telegram_error).lower()
+                if "cannot send requests while disconnected" in error_str or "sessionrevokederror" in error_str:
+                    logger.error(f"🔌 Telegram session disconnected for thread {message.channel.id}")
+                    # Notify staff privately about the technical issue
+                    await self._notify_staff_privately(
+                        message.channel, 
+                        f"Telegram session disconnected - cannot send messages to VA\nUser: {message.author.mention}\nError: {telegram_error}"
+                    )
+                    # Give user a generic response without technical details
+                    await message.add_reaction("⏳")  # Just acknowledge with reaction
+                else:
+                    logger.error(f"❌ Telegram error in thread {message.channel.id}: {telegram_error}")
+                    # Notify staff privately about other Telegram errors
+                    await self._notify_staff_privately(
+                        message.channel, 
+                        f"Telegram communication error\nUser: {message.author.mention}\nError: {telegram_error}"
+                    )
+                    await message.add_reaction("⏳")  # Just acknowledge with reaction
+        else:
+            # Notify staff privately that Telegram manager is unavailable
+            await self._notify_staff_privately(
+                message.channel, 
+                f"Telegram manager unavailable - VA communication system down\nUser: {message.author.mention}"
             )
-            
-            if not success:
-                await message.reply("❌ Failed to send message to VA. Please try again.")
+            await message.add_reaction("⏳")  # Just acknowledge with reaction
     
     @commands.Cog.listener()
     async def on_thread_delete(self, thread: discord.Thread):
@@ -406,11 +544,22 @@ class VIPSessionManager(commands.Cog):
                 telegram_manager = get_telegram_manager()
                 if telegram_manager:
                     # Clear chat history between dummy account and VA
-                    history_cleared = await telegram_manager.clear_chat_history(user_id, self.TELEGRAM_VA_USERNAME)
-                    if history_cleared:
-                        logger.info(f"✅ Cleared chat history for user {user_id} after thread deletion")
-                    else:
-                        logger.warning(f"⚠️ Failed to clear chat history for user {user_id} after thread deletion")
+                    try:
+                        if self.TELEGRAM_VA_USERNAME:
+                            history_cleared = await telegram_manager.clear_chat_history(user_id, self.TELEGRAM_VA_USERNAME)
+                            if history_cleared:
+                                logger.info(f"✅ Cleared chat history for user {user_id} after thread deletion")
+                            else:
+                                logger.warning(f"⚠️ Failed to clear chat history for user {user_id} after thread deletion")
+                        else:
+                            logger.warning(f"⚠️ TELEGRAM_VA_USERNAME not configured, skipping chat history cleanup for user {user_id}")
+                    except Exception as telegram_error:
+                        # Handle Telegram session errors gracefully
+                        error_str = str(telegram_error).lower()
+                        if "cannot send requests while disconnected" in error_str or "sessionrevokederror" in error_str:
+                            logger.error(f"🔌 Telegram session disconnected, cannot clear chat history for user {user_id}")
+                        else:
+                            logger.error(f"❌ Error clearing chat history for user {user_id}: {telegram_error}")
                     
                     # Release the Telegram account
                     await telegram_manager.release_account(user_id)
@@ -545,11 +694,22 @@ class VIPSessionManager(commands.Cog):
             telegram_manager = get_telegram_manager()
             if telegram_manager:
                 # Clear chat history between dummy account and VA
-                history_cleared = await telegram_manager.clear_chat_history(user_id, self.TELEGRAM_VA_USERNAME)
-                if history_cleared:
-                    logger.info(f"✅ Cleared chat history for user {user_id}")
-                else:
-                    logger.warning(f"⚠️ Failed to clear chat history for user {user_id}")
+                try:
+                    if self.TELEGRAM_VA_USERNAME:
+                        history_cleared = await telegram_manager.clear_chat_history(user_id, self.TELEGRAM_VA_USERNAME)
+                        if history_cleared:
+                            logger.info(f"✅ Cleared chat history for user {user_id}")
+                        else:
+                            logger.warning(f"⚠️ Failed to clear chat history for user {user_id}")
+                    else:
+                        logger.warning(f"⚠️ TELEGRAM_VA_USERNAME not configured, skipping chat history cleanup for user {user_id}")
+                except Exception as telegram_error:
+                    # Handle Telegram session errors gracefully
+                    error_str = str(telegram_error).lower()
+                    if "cannot send requests while disconnected" in error_str or "sessionrevokederror" in error_str:
+                        logger.error(f"🔌 Telegram session disconnected, cannot clear chat history for user {user_id}")
+                    else:
+                        logger.error(f"❌ Error clearing chat history for user {user_id}: {telegram_error}")
                 
                 # Release the account
                 await telegram_manager.release_account(user_id)
