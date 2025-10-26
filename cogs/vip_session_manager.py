@@ -46,6 +46,7 @@ class VIPSessionManager(commands.Cog):
         self.bot = bot
         self.active_threads: Dict[str, discord.Thread] = {}  # discord_user_id -> thread
         self.thread_sessions: Dict[int, str] = {}  # thread_id -> discord_user_id
+        self.threads_awaiting_first_message: set = set()  # thread_ids where user hasn't sent first message yet
         
         # Configuration
         self.VIP_UPGRADE_CHANNEL_ID = int(os.getenv('VIP_UPGRADE_CHANNEL_ID', '0'))
@@ -163,6 +164,7 @@ class VIPSessionManager(commands.Cog):
             # Store session info
             self.active_threads[user_id] = thread
             self.thread_sessions[thread.id] = user_id
+            self.threads_awaiting_first_message.add(thread.id)  # Mark as awaiting first message
             
             # Send welcome message to thread
             embed = discord.Embed(
@@ -434,6 +436,82 @@ class VIPSessionManager(commands.Cog):
         except Exception as e:
             logger.error(f"❌ Error sending VA referral message for user {discord_user.name}: {e}")
     
+    async def _send_staff_info_to_va(self, user_id: str, referring_staff: Optional[Dict], thread: discord.Thread):
+        """Send staff information to VA when user sends their first message"""
+        try:
+            # Only send if we have referring staff info
+            if not referring_staff:
+                logger.info(f"No referring staff found for thread {thread.id}, skipping staff info message")
+                await self._notify_staff_privately(
+                    thread, 
+                    f"⚠️ No referring staff found for user - cannot send staff information to VA"
+                )
+                return
+            
+            # Check if TELEGRAM_VA_USERNAME is configured
+            if not self.TELEGRAM_VA_USERNAME:
+                logger.warning(f"⚠️ TELEGRAM_VA_USERNAME not configured, skipping staff info message")
+                await self._notify_staff_privately(
+                    thread, 
+                    f"⚠️ TELEGRAM_VA_USERNAME not configured - cannot send staff information to VA"
+                )
+                return
+            
+            # Extract full name and vantage email from staff config
+            full_name = referring_staff.get('full_name', referring_staff.get('staff_name', 'Unknown'))
+            vantage_email = referring_staff.get('vantage_email', 'unknown@email.com')
+            
+            # Create the staff information message in the requested format
+            staff_info_message = f"THIS USER IS UPGRADING FOR: {full_name}\nWITH EMAIL: {vantage_email}"
+            
+            # Send to VA via Telegram with error handling for disconnected sessions
+            telegram_manager = get_telegram_manager()
+            if telegram_manager:
+                try:
+                    success = await telegram_manager.send_message(
+                        user_id,
+                        self.TELEGRAM_VA_USERNAME, 
+                        staff_info_message
+                    )
+                    
+                    if success:
+                        logger.info(f"✅ Sent staff info to VA for thread {thread.id}: {staff_info_message}")
+                    else:
+                        logger.error(f"❌ Failed to send staff info to VA for thread {thread.id}")
+                        await self._notify_staff_privately(
+                            thread, 
+                            f"❌ Failed to send staff information to VA (send_message returned False)"
+                        )
+                        
+                except Exception as telegram_error:
+                    # Handle specific Telegram connection errors
+                    error_str = str(telegram_error).lower()
+                    if "cannot send requests while disconnected" in error_str or "sessionrevokederror" in error_str:
+                        logger.error(f"🔌 Telegram session disconnected, cannot send staff info for thread {thread.id}")
+                        await self._notify_staff_privately(
+                            thread, 
+                            f"🔌 Telegram session disconnected - cannot send staff information to VA\nError: {telegram_error}"
+                        )
+                    else:
+                        logger.error(f"❌ Telegram error sending staff info for thread {thread.id}: {telegram_error}")
+                        await self._notify_staff_privately(
+                            thread, 
+                            f"❌ Telegram communication error - cannot send staff information to VA\nError: {telegram_error}"
+                        )
+            else:
+                logger.error(f"❌ No telegram manager available to send staff info for thread {thread.id}")
+                await self._notify_staff_privately(
+                    thread, 
+                    f"❌ Telegram manager unavailable - cannot send staff information to VA"
+                )
+                
+        except Exception as e:
+            logger.error(f"❌ Error sending staff info to VA for thread {thread.id}: {e}")
+            await self._notify_staff_privately(
+                thread, 
+                f"❌ Unexpected error sending staff information to VA: {e}"
+            )
+    
     async def _log_session_creation(self, user: discord.User, thread: discord.Thread, 
                                   telegram_account, referring_staff: Optional[Dict]):
         """Log VIP session creation for analytics"""
@@ -465,6 +543,19 @@ class VIPSessionManager(commands.Cog):
         if message.content.lower().strip() == "!end":
             await self._end_session(message.channel, user_id)
             return
+        
+        # Check if this is the user's first message in the thread
+        is_first_message = message.channel.id in self.threads_awaiting_first_message
+        if is_first_message:
+            # Remove from awaiting set
+            self.threads_awaiting_first_message.discard(message.channel.id)
+            
+            # Get referring staff info and send to VA before user's message
+            referring_staff = await self._get_referring_staff(message.author.id)
+            await self._send_staff_info_to_va(user_id, referring_staff, message.channel)
+            
+            # Small delay to ensure staff info arrives before user message
+            await asyncio.sleep(0.5)
         
         # Forward message to Telegram - send as natural conversation
         telegram_manager = get_telegram_manager()
@@ -714,6 +805,8 @@ class VIPSessionManager(commands.Cog):
                 del self.active_threads[user_id]
             if thread.id in self.thread_sessions:
                 del self.thread_sessions[thread.id]
+            # Clean up first message tracking
+            self.threads_awaiting_first_message.discard(thread.id)
             
             # Send completion message
             embed = discord.Embed(
