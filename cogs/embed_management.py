@@ -901,7 +901,7 @@ Check our **results channels** for real VIP performance data!
                     await self.send_cta_embed(channel)
                     logger.info(f"✅ Weekly CTA embed posted to {channel.name}")
                 else:
-                    logger.warning(f"⚠️ Free signals channel {self.FREE_SIGNALS_CHANNEL_ID} not found")
+                    logger.warning(f"⚠️ Free trade ideas channel {self.FREE_SIGNALS_CHANNEL_ID} not found")
             else:
                 logger.warning("⚠️ FREE_SIGNALS_CHANNEL_ID not configured for weekly CTA task")
         except Exception as e:
