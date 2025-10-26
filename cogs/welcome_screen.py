@@ -722,5 +722,5 @@ Welcome to your path to prosperity! 📊✨
             logger.error(f"❌ Failed to manually verify member: {e}")
             await interaction.followup.send(f"❌ Verification failed: {str(e)}")
 
-def setup(bot):
-    bot.add_cog(WelcomeScreenSystem(bot))
+async def setup(bot):
+    await bot.add_cog(WelcomeScreenSystem(bot))

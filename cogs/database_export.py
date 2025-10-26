@@ -8,6 +8,7 @@ This runs on Railway and outputs the backup data that you can copy.
 
 import discord
 from discord.ext import commands
+from discord import app_commands
 import sqlite3
 import json
 import os
@@ -23,19 +24,19 @@ class DatabaseExportCommands(commands.Cog):
         self.bot = bot
         self.db_path = "server_management.db"
     
-    @discord.slash_command(
+    @app_commands.command(
         name="export_database",
         description="[ADMIN] Export complete database backup (Railway safe)"
     )
-    @discord.default_permissions(administrator=True)
-    async def export_database(self, ctx: discord.ApplicationContext):
+    @app_commands.default_permissions(administrator=True)
+    async def export_database(self, interaction: discord.Interaction):
         """Export complete database for backup purposes"""
         
-        await ctx.defer(ephemeral=True)
+        await interaction.response.defer(ephemeral=True)
         
         try:
             if not os.path.exists(self.db_path):
-                await ctx.followup.send("❌ Database file not found. This might be a new deployment.")
+                await interaction.followup.send("❌ Database file not found. This might be a new deployment.")
                 return
             
             # Create backup data
@@ -50,7 +51,7 @@ class DatabaseExportCommands(commands.Cog):
                 "backup_info": {
                     "created_at": datetime.now().isoformat(),
                     "source": "Railway Production Database",
-                    "exported_by": f"{ctx.author.name}#{ctx.author.discriminator}",
+                    "exported_by": f"{interaction.user.name}#{interaction.user.discriminator}",
                     "tables": len(tables)
                 },
                 "data": {}
@@ -122,30 +123,30 @@ class DatabaseExportCommands(commands.Cog):
             # Send the backup file
             with open(backup_filename, 'rb') as f:
                 file = discord.File(f, filename=backup_filename)
-                await ctx.followup.send(content=summary, file=file)
+                await interaction.followup.send(content=summary, file=file)
             
             # Clean up
             os.remove(backup_filename)
             
-            logger.info(f"Database export completed by {ctx.author} - {total_records} records backed up")
+            logger.info(f"Database export completed by {interaction.user} - {total_records} records backed up")
             
         except Exception as e:
             logger.error(f"Database export failed: {e}")
-            await ctx.followup.send(f"❌ Export failed: {str(e)}")
+            await interaction.followup.send(f"❌ Export failed: {str(e)}")
     
-    @discord.slash_command(
+    @app_commands.command(
         name="verify_database",
         description="[ADMIN] Check current database status and integrity"
     )
-    @discord.default_permissions(administrator=True)
-    async def verify_database(self, ctx: discord.ApplicationContext):
+    @app_commands.default_permissions(administrator=True)
+    async def verify_database(self, interaction: discord.Interaction):
         """Verify current database state"""
         
-        await ctx.defer(ephemeral=True)
+        await interaction.response.defer(ephemeral=True)
         
         try:
             if not os.path.exists(self.db_path):
-                await ctx.followup.send("❌ Database file not found.")
+                await interaction.followup.send("❌ Database file not found.")
                 return
             
             conn = sqlite3.connect(self.db_path, timeout=10.0)
@@ -176,10 +177,10 @@ class DatabaseExportCommands(commands.Cog):
             
             conn.close()
             
-            await ctx.followup.send(verification)
+            await interaction.followup.send(verification)
             
         except Exception as e:
-            await ctx.followup.send(f"❌ Verification failed: {str(e)}")
+            await interaction.followup.send(f"❌ Verification failed: {str(e)}")
 
-def setup(bot):
-    bot.add_cog(DatabaseExportCommands(bot))
+async def setup(bot):
+    await bot.add_cog(DatabaseExportCommands(bot))
