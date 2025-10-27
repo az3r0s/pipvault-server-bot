@@ -16,7 +16,7 @@ import logging
 import json
 import os
 from datetime import datetime, timedelta
-from typing import Optional, Dict
+from typing import Optional, Dict, Union
 
 # Import the Telegram manager
 import sys
@@ -49,15 +49,25 @@ class VIPSessionManager(commands.Cog):
         self.threads_awaiting_first_message: set = set()  # thread_ids where user hasn't sent first message yet
         
         # Configuration
+        self.GUILD_ID = int(os.getenv('DISCORD_GUILD_ID', '0'))  # Discord server ID
         self.VIP_UPGRADE_CHANNEL_ID = int(os.getenv('VIP_UPGRADE_CHANNEL_ID', '0'))
         self.VIP_ROLE_ID = os.getenv('VIP_ROLE_ID', '0')
         self.TELEGRAM_VA_USERNAME = os.getenv('TELEGRAM_VA_USERNAME', '')
         self.VA_DISCORD_USER_ID = int(os.getenv('VA_DISCORD_USER_ID', '0'))  # Your Discord user ID
         self.ADMIN_USER_ID = 243819020040536065  # thegoldtradingresults - for private error notifications
-        self.session_timeout_hours = int(os.getenv('VIP_SESSION_TIMEOUT_HOURS', '72'))  # Session timeout
         
-        # Start cleanup task
-        self.cleanup_expired_sessions.start()
+        # VIP Group monitoring
+        self.TELEGRAM_VIP_GROUP_ID = os.getenv('TELEGRAM_VIP_GROUP_ID', '')  # Chat ID of VIP group
+        self.TELEGRAM_VIP_GROUP_USERNAME = os.getenv('TELEGRAM_VIP_GROUP_USERNAME', '')  # @vipgroup username
+        
+        # Track completed upgrades
+        self.completed_upgrades: set = set()  # discord_user_ids that completed VIP upgrade
+        
+        # Remove session timeout - sessions only end manually or when completed
+        # self.session_timeout_hours = int(os.getenv('VIP_SESSION_TIMEOUT_HOURS', '72'))  # REMOVED
+        
+        # Start monitoring task (replaces cleanup task)
+        self.monitor_vip_completions.start()
     
     async def cog_load(self):
         """Called when cog is loaded"""
@@ -70,15 +80,16 @@ class VIPSessionManager(commands.Cog):
     
     async def cog_unload(self):
         """Called when cog is unloaded"""
-        self.cleanup_expired_sessions.cancel()
+        self.monitor_vip_completions.cancel()
     
     async def create_vip_session(self, interaction: discord.Interaction) -> bool:
         """Create a new VIP chat session for a user"""
         user_id = str(interaction.user.id)
         
         try:
-            # Check if user already has VIP role
-            if self.VIP_ROLE_ID in [str(role.id) for role in interaction.user.roles]:
+            # Check if user already has VIP role (handle both User and Member types)
+            user_roles = getattr(interaction.user, 'roles', [])
+            if self.VIP_ROLE_ID in [str(role.id) for role in user_roles]:
                 await interaction.response.send_message(
                     "❌ **VIP users cannot use this system.** This feature is for regular users only.\n"
                     "As a VIP member, you already have access to premium channels and support.",
@@ -178,8 +189,8 @@ class VIPSessionManager(commands.Cog):
                 value=(
                     "• Send a message in this chat to begin your VIP upgrade consultation\n"
                     "• Our staff team will respond to you shortly\n"
-                    f"• This session will remain active for {self.session_timeout_hours} hours\n"
-                    "• Type `!end` to complete your session early"
+                    "• This session will remain active until your VIP upgrade is complete\n"
+                    "• Type `!end` to close your session early if needed"
                 ),
                 inline=False
             )
@@ -208,7 +219,7 @@ class VIPSessionManager(commands.Cog):
                     "• Click the thread link above to enter your chat\n"
                     "• Messages you send will be handled by our staff team\n"
                     "• Get personalized VIP upgrade assistance\n"
-                    f"• Session active for {self.session_timeout_hours} hours"
+                    "• Session remains active until your VIP upgrade is complete"
                 ),
                 inline=False
             )
@@ -387,7 +398,7 @@ class VIPSessionManager(commands.Cog):
         except Exception as notification_error:
             logger.error(f"❌ Failed to send staff notification in thread: {notification_error}")
 
-    async def _send_va_referral_message(self, user_id: str, discord_user: discord.Member, referring_staff: Optional[Dict]):
+    async def _send_va_referral_message(self, user_id: str, discord_user: Union[discord.User, discord.Member], referring_staff: Optional[Dict]):
         """Send automatic referral message to VA when a new chat session is created"""
         try:
             # Only send referral message if we have referring staff info
@@ -512,7 +523,7 @@ class VIPSessionManager(commands.Cog):
                 f"❌ Unexpected error sending staff information to VA: {e}"
             )
     
-    async def _log_session_creation(self, user: discord.User, thread: discord.Thread, 
+    async def _log_session_creation(self, user: Union[discord.User, discord.Member], thread: discord.Thread, 
                                   telegram_account, referring_staff: Optional[Dict]):
         """Log VIP session creation for analytics"""
         try:
@@ -541,7 +552,8 @@ class VIPSessionManager(commands.Cog):
         
         # Handle end session command
         if message.content.lower().strip() == "!end":
-            await self._end_session(message.channel, user_id)
+            if isinstance(message.channel, discord.Thread):
+                await self._end_session(message.channel, user_id)
             return
         
         # Check if this is the user's first message in the thread
@@ -552,7 +564,8 @@ class VIPSessionManager(commands.Cog):
             
             # Get referring staff info and send to VA before user's message
             referring_staff = await self._get_referring_staff(message.author.id)
-            await self._send_staff_info_to_va(user_id, referring_staff, message.channel)
+            if isinstance(message.channel, discord.Thread):
+                await self._send_staff_info_to_va(user_id, referring_staff, message.channel)
             
             # Small delay to ensure staff info arrives before user message
             await asyncio.sleep(0.5)
@@ -563,10 +576,11 @@ class VIPSessionManager(commands.Cog):
             # Check if TELEGRAM_VA_USERNAME is configured
             if not self.TELEGRAM_VA_USERNAME:
                 # Notify staff privately about configuration issue
-                await self._notify_staff_privately(
-                    message.channel, 
-                    f"TELEGRAM_VA_USERNAME not configured - VA communication disabled\nUser: {message.author.mention}"
-                )
+                if isinstance(message.channel, discord.Thread):
+                    await self._notify_staff_privately(
+                        message.channel, 
+                        f"TELEGRAM_VA_USERNAME not configured - VA communication disabled\nUser: {message.author.mention}"
+                    )
                 await message.add_reaction("⏳")  # Just acknowledge with reaction
                 return
                 
@@ -582,10 +596,11 @@ class VIPSessionManager(commands.Cog):
                 
                 if not success:
                     # Notify staff privately instead of alerting the user
-                    await self._notify_staff_privately(
-                        message.channel, 
-                        f"Failed to send user message to VA (send_message returned False)\nUser: {message.author.mention}\nMessage: {message.content[:100]}..."
-                    )
+                    if isinstance(message.channel, discord.Thread):
+                        await self._notify_staff_privately(
+                            message.channel, 
+                            f"Failed to send user message to VA (send_message returned False)\nUser: {message.author.mention}\nMessage: {message.content[:100]}..."
+                        )
                     # Give user a generic message without technical details
                     await message.add_reaction("⏳")  # Just add a reaction to acknowledge
                     
@@ -595,26 +610,29 @@ class VIPSessionManager(commands.Cog):
                 if "cannot send requests while disconnected" in error_str or "sessionrevokederror" in error_str:
                     logger.error(f"🔌 Telegram session disconnected for thread {message.channel.id}")
                     # Notify staff privately about the technical issue
-                    await self._notify_staff_privately(
-                        message.channel, 
-                        f"Telegram session disconnected - cannot send messages to VA\nUser: {message.author.mention}\nError: {telegram_error}"
-                    )
+                    if isinstance(message.channel, discord.Thread):
+                        await self._notify_staff_privately(
+                            message.channel, 
+                            f"Telegram session disconnected - cannot send messages to VA\nUser: {message.author.mention}\nError: {telegram_error}"
+                        )
                     # Give user a generic response without technical details
                     await message.add_reaction("⏳")  # Just acknowledge with reaction
                 else:
                     logger.error(f"❌ Telegram error in thread {message.channel.id}: {telegram_error}")
                     # Notify staff privately about other Telegram errors
-                    await self._notify_staff_privately(
-                        message.channel, 
-                        f"Telegram communication error\nUser: {message.author.mention}\nError: {telegram_error}"
-                    )
+                    if isinstance(message.channel, discord.Thread):
+                        await self._notify_staff_privately(
+                            message.channel, 
+                            f"Telegram communication error\nUser: {message.author.mention}\nError: {telegram_error}"
+                        )
                     await message.add_reaction("⏳")  # Just acknowledge with reaction
         else:
             # Notify staff privately that Telegram manager is unavailable
-            await self._notify_staff_privately(
-                message.channel, 
-                f"Telegram manager unavailable - VA communication system down\nUser: {message.author.mention}"
-            )
+            if isinstance(message.channel, discord.Thread):
+                await self._notify_staff_privately(
+                    message.channel, 
+                    f"Telegram manager unavailable - VA communication system down\nUser: {message.author.mention}"
+                )
             await message.add_reaction("⏳")  # Just acknowledge with reaction
     
     @commands.Cog.listener()
@@ -626,36 +644,8 @@ class VIPSessionManager(commands.Cog):
                 user_id = self.thread_sessions[thread.id]
                 logger.info(f"🧹 VIP thread {thread.id} deleted, cleaning up session for user {user_id}")
                 
-                # Clean up the session (same as _end_session but without sending messages)
-                telegram_manager = get_telegram_manager()
-                if telegram_manager:
-                    # Clear chat history between dummy account and VA
-                    try:
-                        if self.TELEGRAM_VA_USERNAME:
-                            history_cleared = await telegram_manager.clear_chat_history(user_id, self.TELEGRAM_VA_USERNAME)
-                            if history_cleared:
-                                logger.info(f"✅ Cleared chat history for user {user_id} after thread deletion")
-                            else:
-                                logger.warning(f"⚠️ Failed to clear chat history for user {user_id} after thread deletion")
-                        else:
-                            logger.warning(f"⚠️ TELEGRAM_VA_USERNAME not configured, skipping chat history cleanup for user {user_id}")
-                    except Exception as telegram_error:
-                        # Handle Telegram session errors gracefully
-                        error_str = str(telegram_error).lower()
-                        if "cannot send requests while disconnected" in error_str or "sessionrevokederror" in error_str:
-                            logger.error(f"🔌 Telegram session disconnected, cannot clear chat history for user {user_id}")
-                        else:
-                            logger.error(f"❌ Error clearing chat history for user {user_id}: {telegram_error}")
-                    
-                    # Release the Telegram account
-                    await telegram_manager.release_account(user_id)
-                    logger.info(f"🔓 Released Telegram account for user {user_id} after thread deletion")
-                
-                # Clean up session tracking
-                if user_id in self.active_threads:
-                    del self.active_threads[user_id]
-                if thread.id in self.thread_sessions:
-                    del self.thread_sessions[thread.id]
+                # Use the centralized cleanup method
+                await self._cleanup_session(user_id, reason="Thread deleted by staff")
                 
                 logger.info(f"✅ Successfully cleaned up VIP session for user {user_id} after thread deletion")
                 
@@ -774,45 +764,13 @@ class VIPSessionManager(commands.Cog):
             return False
     
     async def _end_session(self, thread: discord.Thread, user_id: str):
-        """End a VIP chat session"""
+        """End a VIP chat session manually"""
         try:
-            # Clear chat history and release Telegram account
-            telegram_manager = get_telegram_manager()
-            if telegram_manager:
-                # Clear chat history between dummy account and VA
-                try:
-                    if self.TELEGRAM_VA_USERNAME:
-                        history_cleared = await telegram_manager.clear_chat_history(user_id, self.TELEGRAM_VA_USERNAME)
-                        if history_cleared:
-                            logger.info(f"✅ Cleared chat history for user {user_id}")
-                        else:
-                            logger.warning(f"⚠️ Failed to clear chat history for user {user_id}")
-                    else:
-                        logger.warning(f"⚠️ TELEGRAM_VA_USERNAME not configured, skipping chat history cleanup for user {user_id}")
-                except Exception as telegram_error:
-                    # Handle Telegram session errors gracefully
-                    error_str = str(telegram_error).lower()
-                    if "cannot send requests while disconnected" in error_str or "sessionrevokederror" in error_str:
-                        logger.error(f"🔌 Telegram session disconnected, cannot clear chat history for user {user_id}")
-                    else:
-                        logger.error(f"❌ Error clearing chat history for user {user_id}: {telegram_error}")
-                
-                # Release the account
-                await telegram_manager.release_account(user_id)
-            
-            # Clean up session tracking
-            if user_id in self.active_threads:
-                del self.active_threads[user_id]
-            if thread.id in self.thread_sessions:
-                del self.thread_sessions[thread.id]
-            # Clean up first message tracking
-            self.threads_awaiting_first_message.discard(thread.id)
-            
-            # Send completion message
+            # Send manual completion message
             embed = discord.Embed(
-                title="✅ VIP Chat Session Completed",
-                description="Your VIP chat session has been completed successfully.",
-                color=discord.Color.green()
+                title="✅ VIP Chat Session Ended",
+                description="Your VIP chat session has been ended manually.",
+                color=discord.Color.blue()
             )
             
             embed.add_field(
@@ -820,60 +778,476 @@ class VIPSessionManager(commands.Cog):
                 value=(
                     "• This thread will be archived shortly\n"
                     "• You can create a new session anytime using the VIP upgrade button\n"
-                    "• Thank you for using our VIP chat system!"
+                    "• Contact staff if you need further assistance"
                 ),
                 inline=False
             )
             
             await thread.send(embed=embed)
             
+            # Clean up session
+            await self._cleanup_session(user_id, reason="Manual session end")
+            
             # Archive thread after a delay
             await asyncio.sleep(30)
-            await thread.edit(archived=True)
+            await thread.edit(archived=True, reason="Manual session end")
             
-            logger.info(f"✅ Ended VIP session for user {user_id}")
+            logger.info(f"✅ Manually ended VIP session for user {user_id}")
             
         except Exception as e:
             logger.error(f"❌ Error ending VIP session for user {user_id}: {e}")
     
-    @tasks.loop(minutes=30)
-    async def cleanup_expired_sessions(self):
-        """Clean up expired VIP sessions"""
+    @tasks.loop(minutes=5)
+    async def monitor_vip_completions(self):
+        """Monitor for VIP upgrade completions by checking Telegram group membership"""
         try:
             telegram_manager = get_telegram_manager()
-            if telegram_manager:
-                await telegram_manager.cleanup_expired_sessions()
+            if not telegram_manager:
+                return
             
-            # Clean up orphaned thread sessions
-            current_time = datetime.now()
-            expired_threads = []
-            
-            for user_id, thread in self.active_threads.items():
+            # Check each active session to see if their dummy account was added to VIP group
+            for user_id, thread in list(self.active_threads.items()):
                 try:
-                    # Check if thread still exists and get creation time
-                    if thread.created_at:
-                        age = current_time - thread.created_at.replace(tzinfo=None)
-                        if age > timedelta(hours=self.session_timeout_hours):  # Configurable timeout
-                            expired_threads.append(user_id)
+                    # Skip if already marked as completed
+                    if user_id in self.completed_upgrades:
+                        continue
+                    
+                    # Check if dummy account is now in VIP group
+                    is_in_vip_group = await self._check_dummy_in_vip_group(user_id)
+                    
+                    if is_in_vip_group:
+                        logger.info(f"🎉 VIP upgrade completed for user {user_id} - dummy account added to VIP group")
+                        await self._complete_vip_upgrade(user_id, thread, "VA_VERIFICATION")
+                        
+                except Exception as e:
+                    logger.error(f"❌ Error checking VIP completion for user {user_id}: {e}")
+            
+            # Clean up orphaned thread sessions (threads that no longer exist)
+            orphaned_threads = []
+            for user_id, thread in list(self.active_threads.items()):
+                try:
+                    # Check if thread still exists by trying to access its name
+                    _ = thread.name
                 except:
-                    # Thread no longer exists
-                    expired_threads.append(user_id)
+                    # Thread no longer exists or is inaccessible
+                    orphaned_threads.append(user_id)
             
-            for user_id in expired_threads:
-                thread = self.active_threads.get(user_id)
-                if thread:
-                    await self._end_session(thread, user_id)
-            
-            if expired_threads:
-                logger.info(f"🧹 Cleaned up {len(expired_threads)} expired VIP sessions")
+            for user_id in orphaned_threads:
+                logger.info(f"🧹 Cleaning up orphaned session for user {user_id}")
+                await self._cleanup_session(user_id, reason="Thread deleted")
                 
         except Exception as e:
-            logger.error(f"❌ Error in session cleanup: {e}")
+            logger.error(f"❌ Error in VIP completion monitoring: {e}")
     
-    @cleanup_expired_sessions.before_loop
-    async def before_cleanup(self):
-        """Wait for bot to be ready before starting cleanup task"""
+    @monitor_vip_completions.before_loop
+    async def before_monitor(self):
+        """Wait for bot to be ready before starting monitoring task"""
         await self.bot.wait_until_ready()
+    
+    async def _check_dummy_in_vip_group(self, discord_user_id: str) -> bool:
+        """Check if the dummy account for this user is in the VIP Telegram group"""
+        try:
+            telegram_manager = get_telegram_manager()
+            if not telegram_manager or discord_user_id not in telegram_manager.active_sessions:
+                return False
+            
+            account = telegram_manager.active_sessions[discord_user_id]
+            if not account.client or not account.is_connected:
+                return False
+            
+            # Check if VIP group is configured
+            if not self.TELEGRAM_VIP_GROUP_ID and not self.TELEGRAM_VIP_GROUP_USERNAME:
+                logger.warning("⚠️ VIP group not configured - cannot check membership")
+                return False
+            
+            # Get VIP group entity
+            vip_group = None
+            try:
+                if self.TELEGRAM_VIP_GROUP_ID:
+                    vip_group = await account.client.get_entity(int(self.TELEGRAM_VIP_GROUP_ID))
+                elif self.TELEGRAM_VIP_GROUP_USERNAME:
+                    vip_group = await account.client.get_entity(self.TELEGRAM_VIP_GROUP_USERNAME)
+            except Exception as e:
+                logger.error(f"❌ Failed to get VIP group entity: {e}")
+                return False
+            
+            if not vip_group:
+                return False
+            
+            # Check if account (self) is a member of the VIP group
+            try:
+                # Get account's own user entity
+                me = await account.client.get_me()
+                
+                # Check if we're a participant in the VIP group
+                participants = await account.client.get_participants(vip_group, limit=None)
+                
+                for participant in participants:
+                    try:
+                        # Get participant ID using various methods
+                        participant_id = None
+                        if hasattr(participant, 'id'):
+                            participant_id = getattr(participant, 'id', None)
+                        elif hasattr(participant, 'user_id'):
+                            participant_id = getattr(participant, 'user_id', None)
+                        
+                        if participant_id and participant_id == getattr(me, 'id', None):
+                            logger.info(f"✅ Dummy account {account.phone} found in VIP group for user {discord_user_id}")
+                            return True
+                    except Exception as participant_error:
+                        # Some participant types may not have accessible ID fields
+                        logger.debug(f"Could not get ID from participant: {participant_error}")
+                        continue
+                
+                logger.info(f"🔍 Dummy account {account.phone} not found in VIP group for user {discord_user_id}")
+                return False
+                
+            except Exception as e:
+                logger.error(f"❌ Error checking VIP group membership for user {discord_user_id}: {e}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"❌ Error in _check_dummy_in_vip_group for user {discord_user_id}: {e}")
+            return False
+    
+    async def _assign_vip_role(self, discord_user_id: str) -> bool:
+        """Assign VIP role to Discord user"""
+        try:
+            if not self.VIP_ROLE_ID:
+                logger.error("❌ VIP_ROLE_ID not configured - cannot assign VIP role")
+                return False
+            
+            # Get the user from Discord
+            user = self.bot.get_user(int(discord_user_id))
+            if not user:
+                logger.error(f"❌ Could not find Discord user {discord_user_id}")
+                return False
+            
+            # Get the guild and role
+            guild = self.bot.get_guild(self.GUILD_ID)
+            if not guild:
+                logger.error(f"❌ Could not find guild {self.GUILD_ID}")
+                return False
+            
+            member = guild.get_member(int(discord_user_id))
+            if not member:
+                logger.error(f"❌ User {discord_user_id} is not a member of guild {self.GUILD_ID}")
+                return False
+            
+            vip_role = guild.get_role(int(self.VIP_ROLE_ID))
+            if not vip_role:
+                logger.error(f"❌ VIP role {self.VIP_ROLE_ID} not found in guild")
+                return False
+            
+            # Check if user already has VIP role
+            if vip_role in member.roles:
+                logger.info(f"✅ User {discord_user_id} already has VIP role")
+                return True
+            
+            # Assign VIP role
+            await member.add_roles(vip_role, reason="Automated VIP upgrade completion")
+            logger.info(f"✅ Successfully assigned VIP role to user {discord_user_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Error assigning VIP role to user {discord_user_id}: {e}")
+            return False
+    
+    async def _remove_dummy_from_vip_group(self, discord_user_id: str) -> bool:
+        """Remove dummy account from VIP Telegram group"""
+        try:
+            telegram_manager = get_telegram_manager()
+            if not telegram_manager or discord_user_id not in telegram_manager.active_sessions:
+                logger.error(f"❌ No active Telegram session for user {discord_user_id}")
+                return False
+            
+            account = telegram_manager.active_sessions[discord_user_id]
+            if not account.client or not account.is_connected:
+                logger.error(f"❌ Telegram account not connected for user {discord_user_id}")
+                return False
+            
+            # Check if VIP group is configured
+            if not self.TELEGRAM_VIP_GROUP_ID and not self.TELEGRAM_VIP_GROUP_USERNAME:
+                logger.error("❌ VIP group not configured - cannot remove from group")
+                return False
+            
+            # Get VIP group entity
+            try:
+                if self.TELEGRAM_VIP_GROUP_ID:
+                    vip_group = await account.client.get_entity(int(self.TELEGRAM_VIP_GROUP_ID))
+                elif self.TELEGRAM_VIP_GROUP_USERNAME:
+                    vip_group = await account.client.get_entity(self.TELEGRAM_VIP_GROUP_USERNAME)
+                else:
+                    return False
+            except Exception as e:
+                logger.error(f"❌ Failed to get VIP group entity: {e}")
+                return False
+            
+            # Leave the VIP group
+            try:
+                # Use the first entity if get_entity returns a list
+                if isinstance(vip_group, list):
+                    vip_group = vip_group[0]
+                await account.client.delete_dialog(vip_group)
+                logger.info(f"✅ Successfully removed dummy account {account.phone} from VIP group for user {discord_user_id}")
+                return True
+            except Exception as e:
+                logger.error(f"❌ Error removing dummy account from VIP group for user {discord_user_id}: {e}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"❌ Error in _remove_dummy_from_vip_group for user {discord_user_id}: {e}")
+            return False
+    
+    async def _clear_dummy_chat_history(self, discord_user_id: str) -> bool:
+        """Clear chat history for the dummy Telegram account"""
+        try:
+            telegram_manager = get_telegram_manager()
+            if not telegram_manager or discord_user_id not in telegram_manager.active_sessions:
+                logger.error(f"❌ No active Telegram session for user {discord_user_id}")
+                return False
+            
+            account = telegram_manager.active_sessions[discord_user_id]
+            if not account.client or not account.is_connected:
+                logger.error(f"❌ Telegram account not connected for user {discord_user_id}")
+                return False
+            
+            # Clear chat history with VA if configured
+            if self.TELEGRAM_VA_USERNAME:
+                try:
+                    va_entity = await account.client.get_entity(self.TELEGRAM_VA_USERNAME)
+                    # Use the first entity if get_entity returns a list
+                    if isinstance(va_entity, list):
+                        va_entity = va_entity[0]
+                    await account.client.delete_dialog(va_entity, revoke=True)
+                    logger.info(f"✅ Cleared chat history with VA for dummy account {account.phone}")
+                except Exception as e:
+                    logger.warning(f"⚠️ Could not clear VA chat history for user {discord_user_id}: {e}")
+            
+            # Clear any other relevant chat histories
+            try:
+                # Get all dialogs and clear recent ones related to VIP process
+                dialogs = await account.client.get_dialogs(limit=10)
+                for dialog in dialogs:
+                    # Skip groups and channels, only clear private chats
+                    if dialog.is_user:
+                        try:
+                            await account.client.delete_dialog(dialog.entity, revoke=True)
+                            logger.info(f"✅ Cleared dialog {dialog.name} for dummy account {account.phone}")
+                        except:
+                            # Some dialogs might not be clearable, that's okay
+                            pass
+                
+                logger.info(f"✅ Successfully cleared chat history for dummy account {account.phone} for user {discord_user_id}")
+                return True
+                
+            except Exception as e:
+                logger.error(f"❌ Error clearing chat history for user {discord_user_id}: {e}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"❌ Error in _clear_dummy_chat_history for user {discord_user_id}: {e}")
+            return False
+    
+    async def _complete_vip_upgrade(self, discord_user_id: str, thread: discord.Thread, completion_reason: str):
+        """Complete a VIP upgrade with full automation workflow"""
+        try:
+            # Mark as completed to avoid duplicate processing
+            self.completed_upgrades.add(discord_user_id)
+            
+            # Step 1: Assign VIP role to Discord user
+            vip_role_assigned = await self._assign_vip_role(discord_user_id)
+            
+            # Step 2: Remove dummy account from VIP Telegram group
+            removed_from_vip = await self._remove_dummy_from_vip_group(discord_user_id)
+            
+            # Step 3: Clear Telegram chat history for the dummy account
+            chat_cleared = await self._clear_dummy_chat_history(discord_user_id)
+            
+            # Send completion message to thread
+            embed = discord.Embed(
+                title="🎉 VIP Upgrade Complete!",
+                description="Congratulations! Your VIP upgrade has been fully processed and automated.",
+                color=discord.Color.gold()
+            )
+            
+            # Build status message based on automation results
+            automation_status = []
+            automation_status.append(f"✅ VIP verification: Complete")
+            automation_status.append(f"{'✅' if vip_role_assigned else '⚠️'} Discord VIP role: {'Assigned' if vip_role_assigned else 'Manual assignment needed'}")
+            automation_status.append(f"{'✅' if removed_from_vip else '⚠️'} VIP group cleanup: {'Complete' if removed_from_vip else 'Manual cleanup needed'}")
+            automation_status.append(f"{'✅' if chat_cleared else '⚠️'} Chat history: {'Cleared' if chat_cleared else 'Manual clearing needed'}")
+            automation_status.append(f"✅ Session cleanup: Automated")
+            
+            embed.add_field(
+                name="🔄 Automation Status",
+                value="\n".join(automation_status),
+                inline=False
+            )
+            
+            embed.add_field(
+                name="🚀 Next Steps",
+                value=(
+                    "• Your Discord VIP role provides access to premium channels\n"
+                    "• Join VIP trading signals and exclusive content\n"
+                    "• Access priority support and resources\n"
+                    "• This session will close automatically in 30 seconds"
+                ),
+                inline=False
+            )
+            
+            embed.set_footer(text=f"Automated completion via {completion_reason}")
+            
+            await thread.send(embed=embed)
+            
+            # Notify staff about the completion with automation details
+            await self._notify_staff_vip_completion(discord_user_id, thread, completion_reason, {
+                'vip_role_assigned': vip_role_assigned,
+                'removed_from_vip': removed_from_vip,
+                'chat_cleared': chat_cleared
+            })
+            
+            # Clean up session after a delay to allow user to read the message
+            await asyncio.sleep(30)
+            await self._cleanup_session(discord_user_id, reason=f"VIP upgrade completed ({completion_reason})")
+            
+            # Archive the thread
+            try:
+                await thread.edit(archived=True, reason="VIP upgrade completed automatically")
+                logger.info(f"📦 Archived thread {thread.id} for completed VIP upgrade")
+            except Exception as e:
+                logger.error(f"❌ Failed to archive thread {thread.id}: {e}")
+            
+            logger.info(f"🎉 Successfully completed automated VIP upgrade for user {discord_user_id}")
+            
+        except Exception as e:
+            logger.error(f"❌ Error in automated VIP upgrade completion for user {discord_user_id}: {e}")
+    
+    async def _notify_staff_vip_completion(self, discord_user_id: str, thread: discord.Thread, completion_reason: str, automation_status: Optional[Dict] = None):
+        """Notify staff about VIP upgrade completion"""
+        try:
+            staff_user = self.bot.get_user(self.ADMIN_USER_ID)
+            if not staff_user:
+                return
+            
+            # Get user info for notification
+            discord_user = None
+            try:
+                discord_user = self.bot.get_user(int(discord_user_id))
+            except:
+                pass
+            
+            user_info = f"{discord_user.mention} ({discord_user.name})" if discord_user else f"User ID: {discord_user_id}"
+            
+            embed = discord.Embed(
+                title="🎉 VIP Upgrade Completed",
+                description=f"A VIP upgrade has been automatically completed and verified.",
+                color=discord.Color.green()
+            )
+            
+            embed.add_field(
+                name="👤 User",
+                value=user_info,
+                inline=True
+            )
+            
+            embed.add_field(
+                name="🔍 Verification Method",
+                value=completion_reason.replace("_", " ").title(),
+                inline=True
+            )
+            
+            # Add automation status if provided
+            if automation_status:
+                status_lines = []
+                status_lines.append(f"{'✅' if automation_status.get('vip_role_assigned') else '❌'} Discord VIP Role Assignment")
+                status_lines.append(f"{'✅' if automation_status.get('removed_from_vip') else '❌'} VIP Group Cleanup")
+                status_lines.append(f"{'✅' if automation_status.get('chat_cleared') else '❌'} Chat History Clearing")
+                
+                embed.add_field(
+                    name="🤖 Automation Results",
+                    value="\n".join(status_lines),
+                    inline=False
+                )
+                
+                # Alert if any automation steps failed
+                if not all(automation_status.values()):
+                    embed.add_field(
+                        name="⚠️ Manual Action Required",
+                        value="Some automation steps failed. Please check the logs and complete manually if needed.",
+                        inline=False
+                    )
+            
+            embed.add_field(
+                name="📍 Thread",
+                value=thread.mention,
+                inline=True
+            )
+            
+            embed.add_field(
+                name="⚡ Actions Taken",
+                value=(
+                    "• Session automatically completed\n"
+                    "• User notified of completion\n"
+                    "• Thread archived\n"
+                    "• Telegram account released"
+                ),
+                inline=False
+            )
+            
+            embed.set_footer(text="Automated VIP completion system")
+            
+            # Send notification to VIP upgrade channel
+            channel = self.bot.get_channel(self.VIP_UPGRADE_CHANNEL_ID)
+            if channel:
+                await channel.send(f"{staff_user.mention}", embed=embed)
+            
+        except Exception as e:
+            logger.error(f"❌ Error notifying staff about VIP completion: {e}")
+    
+    async def _cleanup_session(self, discord_user_id: str, reason: str = "Manual cleanup"):
+        """Clean up a VIP session without sending messages to thread"""
+        try:
+            # Clear chat history and release Telegram account
+            telegram_manager = get_telegram_manager()
+            if telegram_manager:
+                try:
+                    if self.TELEGRAM_VA_USERNAME:
+                        account = telegram_manager.active_sessions.get(discord_user_id)
+                        if account:
+                            history_cleared = await telegram_manager.clear_chat_history(discord_user_id, self.TELEGRAM_VA_USERNAME)
+                            if history_cleared:
+                                logger.info(f"✅ Cleared chat history for user {discord_user_id}")
+                            else:
+                                logger.warning(f"⚠️ Failed to clear chat history for user {discord_user_id}")
+                    else:
+                        logger.warning(f"⚠️ TELEGRAM_VA_USERNAME not configured, skipping chat history cleanup for user {discord_user_id}")
+                except Exception as telegram_error:
+                    logger.error(f"❌ Error clearing chat history for user {discord_user_id}: {telegram_error}")
+                
+                # Release the account
+                await telegram_manager.release_account(discord_user_id)
+            
+            # Clean up session tracking
+            if discord_user_id in self.active_threads:
+                del self.active_threads[discord_user_id]
+            
+            # Find and clean up thread mapping
+            thread_id_to_remove = None
+            for thread_id, user_id in self.thread_sessions.items():
+                if user_id == discord_user_id:
+                    thread_id_to_remove = thread_id
+                    break
+            
+            if thread_id_to_remove:
+                del self.thread_sessions[thread_id_to_remove]
+                # Clean up first message tracking
+                self.threads_awaiting_first_message.discard(thread_id_to_remove)
+            
+            logger.info(f"🧹 Cleaned up VIP session for user {discord_user_id}: {reason}")
+            
+        except Exception as e:
+            logger.error(f"❌ Error cleaning up session for user {discord_user_id}: {e}")
     
     # Admin commands for session management
     @app_commands.command(name="vip-status", description="Check VIP chat system status")
@@ -1008,6 +1382,81 @@ class VIPSessionManager(commands.Cog):
                 f"❌ Debug failed: {str(e)}", 
                 ephemeral=True
             )
+    
+    @commands.command(name='complete_vip')
+    @commands.has_any_role('Staff', 'Admin', 'Support')
+    async def complete_vip_manually(self, ctx, user_id: Optional[str] = None):
+        """Manually complete a VIP upgrade for a user
+        
+        Usage: !complete_vip @user or !complete_vip user_id
+        """
+        try:
+            # Parse user ID from mention or direct ID
+            if ctx.message.mentions:
+                target_user = ctx.message.mentions[0]
+                target_user_id = str(target_user.id)
+            elif user_id:
+                target_user_id = user_id.strip('<@!>')
+                try:
+                    target_user = await self.bot.fetch_user(int(target_user_id))
+                except:
+                    await ctx.send("❌ Invalid user ID or user not found.")
+                    return
+            else:
+                await ctx.send("❌ Please specify a user by mentioning them or providing their ID.\nUsage: `!complete_vip @user` or `!complete_vip user_id`")
+                return
+            
+            # Check if user has an active VIP session
+            if target_user_id not in self.active_threads:
+                await ctx.send(f"❌ No active VIP session found for {target_user.mention if 'target_user' in locals() else target_user_id}")
+                return
+            
+            # Complete the VIP upgrade
+            thread = self.active_threads[target_user_id]
+            await self._complete_vip_upgrade(target_user_id, thread, f"Manually completed by {ctx.author.mention}")
+            
+            await ctx.send(f"✅ VIP upgrade manually completed for {target_user.mention if 'target_user' in locals() else target_user_id}")
+            logger.info(f"✅ VIP manually completed for user {target_user_id} by {ctx.author.id}")
+            
+        except Exception as e:
+            logger.error(f"❌ Error in complete_vip_manually: {e}")
+            await ctx.send("❌ An error occurred while completing the VIP upgrade.")
+    
+    @commands.command(name='vip_status')
+    @commands.has_any_role('Staff', 'Admin', 'Support')
+    async def check_vip_status(self, ctx):
+        """Check status of all active VIP sessions"""
+        try:
+            if not self.active_threads:
+                await ctx.send("📊 No active VIP sessions currently.")
+                return
+            
+            status_embed = discord.Embed(
+                title="🎯 Active VIP Sessions Status",
+                color=discord.Color.blue(),
+                timestamp=discord.utils.utcnow()
+            )
+            
+            for user_id, thread in self.active_threads.items():
+                try:
+                    user = await self.bot.fetch_user(int(user_id))
+                    status_embed.add_field(
+                        name=f"👤 {user.display_name}",
+                        value=f"**Thread:** {thread.mention}\n**Status:** Active",
+                        inline=True
+                    )
+                except:
+                    status_embed.add_field(
+                        name=f"👤 User ID: {user_id}",
+                        value=f"**Thread:** {thread.mention}\n**Status:** Active",
+                        inline=True
+                    )
+            
+            await ctx.send(embed=status_embed)
+            
+        except Exception as e:
+            logger.error(f"❌ Error in check_vip_status: {e}")
+            await ctx.send("❌ An error occurred while checking VIP status.")
 
 async def setup(bot):
     await bot.add_cog(VIPSessionManager(bot))
