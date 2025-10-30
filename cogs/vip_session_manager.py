@@ -365,6 +365,63 @@ class VIPSessionManager(commands.Cog):
             logger.error(f"Error replacing referral info: {e}")
             return message
     
+    async def _attempt_telegram_reconnection(self, user_id: str, telegram_manager) -> bool:
+        """Attempt to reconnect a Telegram session that has become disconnected"""
+        try:
+            logger.info(f"🔄 Attempting Telegram reconnection for user {user_id}")
+            
+            # Get the account info
+            if user_id not in telegram_manager.active_sessions:
+                logger.error(f"❌ No active session found for user {user_id} to reconnect")
+                return False
+            
+            account = telegram_manager.active_sessions[user_id]
+            
+            # Check if client exists and try to reconnect
+            if account.client:
+                try:
+                    # Disconnect and reconnect
+                    if account.client.is_connected():
+                        await account.client.disconnect()
+                        logger.info(f"🔌 Disconnected existing client for user {user_id}")
+                    
+                    # Wait a moment before reconnecting
+                    await asyncio.sleep(2)
+                    
+                    # Attempt to reconnect
+                    await account.client.connect()
+                    logger.info(f"✅ Successfully reconnected Telegram client for user {user_id}")
+                    
+                    # Update connection status
+                    account.is_connected = True
+                    account.last_activity = datetime.now()
+                    
+                    return True
+                    
+                except Exception as reconnect_error:
+                    logger.error(f"❌ Failed to reconnect Telegram client for user {user_id}: {reconnect_error}")
+                    
+                    # Try to create a new client with the same session string
+                    try:
+                        logger.info(f"🔄 Attempting to create new client with existing session for user {user_id}")
+                        
+                        # This would require access to the original session string
+                        # The telegram manager should handle this internally
+                        if hasattr(telegram_manager, 'reconnect_account'):
+                            success = await telegram_manager.reconnect_account(user_id)
+                            if success:
+                                logger.info(f"✅ Successfully created new client for user {user_id}")
+                                return True
+                        
+                    except Exception as new_client_error:
+                        logger.error(f"❌ Failed to create new client for user {user_id}: {new_client_error}")
+            
+            return False
+            
+        except Exception as e:
+            logger.error(f"❌ Error in Telegram reconnection for user {user_id}: {e}")
+            return False
+
     async def _notify_staff_privately(self, thread: discord.Thread, error_message: str):
         """Send private notification to staff about technical issues in the thread without alerting the user"""
         try:
@@ -381,6 +438,11 @@ class VIPSessionManager(commands.Cog):
                 embed.add_field(
                     name="Technical Details", 
                     value="Telegram session disconnected or TELEGRAM_VA_USERNAME misconfigured", 
+                    inline=False
+                )
+                embed.add_field(
+                    name="🔄 Auto-Recovery", 
+                    value="System attempted automatic reconnection. Check logs for results.", 
                     inline=False
                 )
                 embed.set_footer(text="This notification is only visible to staff")
@@ -418,7 +480,7 @@ class VIPSessionManager(commands.Cog):
             # Create the referral message
             referral_message = f"This user is for '{full_name}', Vantage email: '{vantage_email}'"
             
-            # Send to VA via Telegram with error handling for disconnected sessions
+            # Send to VA via Telegram with enhanced error handling and auto-reconnection
             telegram_manager = get_telegram_manager()
             if telegram_manager:
                 try:
@@ -432,13 +494,38 @@ class VIPSessionManager(commands.Cog):
                         logger.info(f"✅ Sent VA referral message for user {discord_user.name}: {referral_message}")
                     else:
                         logger.error(f"❌ Failed to send VA referral message for user {discord_user.name}")
+                        # Try to reconnect and retry once
+                        logger.info(f"🔄 Attempting to reconnect Telegram session for user {discord_user.name}")
+                        reconnected = await self._attempt_telegram_reconnection(user_id, telegram_manager)
+                        if reconnected:
+                            # Retry sending the message
+                            retry_success = await telegram_manager.send_message(user_id, self.TELEGRAM_VA_USERNAME, referral_message)
+                            if retry_success:
+                                logger.info(f"✅ Successfully sent VA referral message after reconnection for user {discord_user.name}")
+                            else:
+                                logger.error(f"❌ Failed to send VA referral message even after reconnection for user {discord_user.name}")
                         
                 except Exception as telegram_error:
-                    # Handle specific Telegram connection errors
+                    # Handle specific Telegram connection errors with auto-reconnection
                     error_str = str(telegram_error).lower()
-                    if "cannot send requests while disconnected" in error_str or "sessionrevokederror" in error_str:
-                        logger.error(f"🔌 Telegram session disconnected, cannot send VA referral message for {discord_user.name}")
-                        logger.info(f"💡 Consider reconnecting Telegram session or checking TELEGRAM_VA_USERNAME configuration")
+                    if "cannot send requests while disconnected" in error_str or "sessionrevokederror" in error_str or "connection" in error_str:
+                        logger.error(f"🔌 Telegram session disconnected, attempting auto-reconnection for {discord_user.name}")
+                        
+                        # Attempt automatic reconnection
+                        reconnected = await self._attempt_telegram_reconnection(user_id, telegram_manager)
+                        if reconnected:
+                            try:
+                                # Retry sending the message after reconnection
+                                retry_success = await telegram_manager.send_message(user_id, self.TELEGRAM_VA_USERNAME, referral_message)
+                                if retry_success:
+                                    logger.info(f"✅ Successfully sent VA referral message after auto-reconnection for user {discord_user.name}")
+                                else:
+                                    logger.error(f"❌ Failed to send VA referral message even after auto-reconnection for user {discord_user.name}")
+                            except Exception as retry_error:
+                                logger.error(f"❌ Error during retry after reconnection for user {discord_user.name}: {retry_error}")
+                        else:
+                            logger.error(f"❌ Auto-reconnection failed for user {discord_user.name}")
+                            logger.info(f"💡 Consider running fix_account_1_session.py to regenerate session strings")
                     else:
                         logger.error(f"❌ Telegram error sending VA referral message for user {discord_user.name}: {telegram_error}")
             else:
@@ -495,14 +582,37 @@ class VIPSessionManager(commands.Cog):
                         )
                         
                 except Exception as telegram_error:
-                    # Handle specific Telegram connection errors
+                    # Handle specific Telegram connection errors with auto-reconnection
                     error_str = str(telegram_error).lower()
-                    if "cannot send requests while disconnected" in error_str or "sessionrevokederror" in error_str:
-                        logger.error(f"🔌 Telegram session disconnected, cannot send staff info for thread {thread.id}")
-                        await self._notify_staff_privately(
-                            thread, 
-                            f"🔌 Telegram session disconnected - cannot send staff information to VA\nError: {telegram_error}"
-                        )
+                    if "cannot send requests while disconnected" in error_str or "sessionrevokederror" in error_str or "connection" in error_str:
+                        logger.error(f"🔌 Telegram session disconnected, attempting auto-reconnection for thread {thread.id}")
+                        
+                        # Attempt automatic reconnection
+                        reconnected = await self._attempt_telegram_reconnection(user_id, telegram_manager)
+                        if reconnected:
+                            try:
+                                # Retry sending staff info after reconnection
+                                retry_success = await telegram_manager.send_message(user_id, self.TELEGRAM_VA_USERNAME, staff_info_message)
+                                if retry_success:
+                                    logger.info(f"✅ Successfully sent staff info after auto-reconnection for thread {thread.id}")
+                                else:
+                                    logger.error(f"❌ Failed to send staff info even after auto-reconnection for thread {thread.id}")
+                                    await self._notify_staff_privately(
+                                        thread, 
+                                        f"🔌 Telegram session reconnected but staff info send still failed\nError: Send returned False"
+                                    )
+                            except Exception as retry_error:
+                                logger.error(f"❌ Error during staff info retry after reconnection for thread {thread.id}: {retry_error}")
+                                await self._notify_staff_privately(
+                                    thread, 
+                                    f"🔌 Telegram session reconnected but retry failed\nError: {retry_error}"
+                                )
+                        else:
+                            logger.error(f"❌ Auto-reconnection failed for thread {thread.id}")
+                            await self._notify_staff_privately(
+                                thread, 
+                                f"🔌 Telegram session disconnected - auto-reconnection failed\nError: {telegram_error}\nSuggestion: Run fix_account_1_session.py"
+                            )
                     else:
                         logger.error(f"❌ Telegram error sending staff info for thread {thread.id}: {telegram_error}")
                         await self._notify_staff_privately(
@@ -595,25 +705,62 @@ class VIPSessionManager(commands.Cog):
                 )
                 
                 if not success:
+                    # Try to reconnect and retry once before notifying staff
+                    logger.info(f"🔄 Message send failed, attempting reconnection for user {user_id}")
+                    reconnected = await self._attempt_telegram_reconnection(user_id, telegram_manager)
+                    
+                    if reconnected:
+                        # Retry sending the message
+                        retry_success = await telegram_manager.send_message(user_id, self.TELEGRAM_VA_USERNAME, natural_message)
+                        if retry_success:
+                            logger.info(f"✅ Successfully sent message after reconnection for user {user_id}")
+                            await message.add_reaction("✅")  # Success indicator
+                            return
+                        else:
+                            logger.error(f"❌ Failed to send message even after reconnection for user {user_id}")
+                    
                     # Notify staff privately instead of alerting the user
                     if isinstance(message.channel, discord.Thread):
                         await self._notify_staff_privately(
                             message.channel, 
-                            f"Failed to send user message to VA (send_message returned False)\nUser: {message.author.mention}\nMessage: {message.content[:100]}..."
+                            f"Failed to send user message to VA (send_message returned False)\nUser: {message.author.mention}\nMessage: {message.content[:100]}...\nReconnection: {'Successful' if reconnected else 'Failed'}"
                         )
                     # Give user a generic message without technical details
                     await message.add_reaction("⏳")  # Just add a reaction to acknowledge
+                else:
+                    # Message sent successfully
+                    await message.add_reaction("✅")  # Success indicator
                     
             except Exception as telegram_error:
-                # Handle specific Telegram connection errors
+                # Handle specific Telegram connection errors with auto-reconnection
                 error_str = str(telegram_error).lower()
-                if "cannot send requests while disconnected" in error_str or "sessionrevokederror" in error_str:
-                    logger.error(f"🔌 Telegram session disconnected for thread {message.channel.id}")
+                if "cannot send requests while disconnected" in error_str or "sessionrevokederror" in error_str or "connection" in error_str:
+                    logger.error(f"🔌 Telegram session disconnected for thread {message.channel.id}, attempting auto-reconnection")
+                    
+                    # Attempt automatic reconnection
+                    reconnected = await self._attempt_telegram_reconnection(user_id, telegram_manager)
+                    
+                    if reconnected:
+                        try:
+                            # Retry sending the message after reconnection
+                            natural_message = f"{message.content}"
+                            retry_success = await telegram_manager.send_message(user_id, self.TELEGRAM_VA_USERNAME, natural_message)
+                            
+                            if retry_success:
+                                logger.info(f"✅ Successfully sent message after auto-reconnection for thread {message.channel.id}")
+                                await message.add_reaction("✅")  # Success indicator
+                                return
+                            else:
+                                logger.error(f"❌ Failed to send message even after auto-reconnection for thread {message.channel.id}")
+                                
+                        except Exception as retry_error:
+                            logger.error(f"❌ Error during retry after reconnection for thread {message.channel.id}: {retry_error}")
+                    
                     # Notify staff privately about the technical issue
                     if isinstance(message.channel, discord.Thread):
                         await self._notify_staff_privately(
                             message.channel, 
-                            f"Telegram session disconnected - cannot send messages to VA\nUser: {message.author.mention}\nError: {telegram_error}"
+                            f"Telegram session disconnected - attempted auto-reconnection ({'Success' if reconnected else 'Failed'})\nUser: {message.author.mention}\nError: {telegram_error}"
                         )
                     # Give user a generic response without technical details
                     await message.add_reaction("⏳")  # Just acknowledge with reaction
@@ -1440,15 +1587,26 @@ class VIPSessionManager(commands.Cog):
             for user_id, thread in self.active_threads.items():
                 try:
                     user = await self.bot.fetch_user(int(user_id))
+                    
+                    # Check Telegram session status
+                    telegram_manager = get_telegram_manager()
+                    session_status = "❌ Unknown"
+                    if telegram_manager and user_id in telegram_manager.active_sessions:
+                        account = telegram_manager.active_sessions[user_id]
+                        if account.is_connected:
+                            session_status = "✅ Connected"
+                        else:
+                            session_status = "🔌 Disconnected"
+                    
                     status_embed.add_field(
                         name=f"👤 {user.display_name}",
-                        value=f"**Thread:** {thread.mention}\n**Status:** Active",
+                        value=f"**Thread:** {thread.mention}\n**Telegram:** {session_status}",
                         inline=True
                     )
                 except:
                     status_embed.add_field(
                         name=f"👤 User ID: {user_id}",
-                        value=f"**Thread:** {thread.mention}\n**Status:** Active",
+                        value=f"**Thread:** {thread.mention}\n**Telegram:** ❌ Unknown",
                         inline=True
                     )
             
@@ -1457,6 +1615,111 @@ class VIPSessionManager(commands.Cog):
         except Exception as e:
             logger.error(f"❌ Error in check_vip_status: {e}")
             await ctx.send("❌ An error occurred while checking VIP status.")
+    
+    @commands.command(name='fix_telegram_session')
+    @commands.has_any_role('Staff', 'Admin', 'Support')
+    async def fix_telegram_session(self, ctx, user_id: Optional[str] = None):
+        """Manually fix a Telegram session for a VIP user
+        
+        Usage: !fix_telegram_session @user or !fix_telegram_session user_id
+        """
+        try:
+            # Parse user ID from mention or direct ID
+            if ctx.message.mentions:
+                target_user = ctx.message.mentions[0]
+                target_user_id = str(target_user.id)
+            elif user_id:
+                target_user_id = user_id.strip('<@!>')
+                try:
+                    target_user = await self.bot.fetch_user(int(target_user_id))
+                except:
+                    await ctx.send("❌ Invalid user ID or user not found.")
+                    return
+            else:
+                await ctx.send("❌ Please specify a user by mentioning them or providing their ID.\nUsage: `!fix_telegram_session @user` or `!fix_telegram_session user_id`")
+                return
+            
+            # Check if user has an active VIP session
+            if target_user_id not in self.active_threads:
+                await ctx.send(f"❌ No active VIP session found for {target_user.mention if 'target_user' in locals() else target_user_id}")
+                return
+            
+            # Get telegram manager
+            telegram_manager = get_telegram_manager()
+            if not telegram_manager:
+                await ctx.send("❌ Telegram manager not available.")
+                return
+            
+            # Attempt reconnection
+            await ctx.send(f"🔄 Attempting to fix Telegram session for {target_user.mention if 'target_user' in locals() else target_user_id}...")
+            
+            reconnected = await self._attempt_telegram_reconnection(target_user_id, telegram_manager)
+            
+            if reconnected:
+                await ctx.send(f"✅ Successfully fixed Telegram session for {target_user.mention if 'target_user' in locals() else target_user_id}")
+                logger.info(f"✅ Telegram session manually fixed for user {target_user_id} by {ctx.author.id}")
+            else:
+                await ctx.send(f"❌ Failed to fix Telegram session for {target_user.mention if 'target_user' in locals() else target_user_id}")
+                await ctx.send("💡 **Suggestion:** Run `fix_account_1_session.py` to regenerate session strings, then restart the bot.")
+                logger.error(f"❌ Failed to manually fix Telegram session for user {target_user_id}")
+            
+        except Exception as e:
+            logger.error(f"❌ Error in fix_telegram_session: {e}")
+            await ctx.send("❌ An error occurred while fixing the Telegram session.")
+    
+    @commands.command(name='regenerate_sessions')
+    @commands.has_permissions(administrator=True)
+    async def regenerate_sessions_command(self, ctx):
+        """Guide for regenerating Telegram sessions using fix_account_1_session.py"""
+        try:
+            embed = discord.Embed(
+                title="🔧 How to Regenerate Telegram Sessions",
+                description="Follow these steps to fix broken Telegram sessions:",
+                color=discord.Color.orange()
+            )
+            
+            embed.add_field(
+                name="1️⃣ Run Session Fix Script",
+                value=(
+                    "```bash\n"
+                    "cd /path/to/unified-trading-service\n"
+                    "python fix_account_1_session.py\n"
+                    "```"
+                ),
+                inline=False
+            )
+            
+            embed.add_field(
+                name="2️⃣ Update Railway Environment",
+                value=(
+                    "Copy the generated session string and update:\n"
+                    "• `TELEGRAM_ACCOUNT_1_SESSION=<new_session_string>`\n"
+                    "• Restart the Railway deployment"
+                ),
+                inline=False
+            )
+            
+            embed.add_field(
+                name="3️⃣ Verify Fix",
+                value="Use `!vip_status` to check if sessions are now connected",
+                inline=False
+            )
+            
+            embed.add_field(
+                name="⚠️ Common Issues",
+                value=(
+                    "• **Phone not receiving SMS:** Check phone number format\n"
+                    "• **Session expires quickly:** Use a dedicated phone number\n"
+                    "• **Railway deployment fails:** Check environment variable syntax"
+                ),
+                inline=False
+            )
+            
+            await ctx.send(embed=embed)
+            
+        except Exception as e:
+            logger.error(f"❌ Error in regenerate_sessions_command: {e}")
+            await ctx.send("❌ An error occurred while displaying session regeneration guide.")
 
 async def setup(bot):
     await bot.add_cog(VIPSessionManager(bot))

@@ -46,19 +46,23 @@ class InviteTracker(commands.Cog):
             # Initialize cache for this guild if it doesn't exist
             if guild.id not in self.invite_cache:
                 self.invite_cache[guild.id] = {}
-            else:
-                # Clear existing cache
-                self.invite_cache[guild.id].clear()
             
-            # Cache all invites
+            # Create new cache dictionary to replace the old one atomically
+            new_cache = {}
+            
+            # Cache all invites in the new dictionary
             for invite in invites:
-                self.invite_cache[guild.id][invite.code] = {
+                new_cache[invite.code] = {
                     'uses': invite.uses,
                     'inviter': invite.inviter,
                     'code': invite.code
                 }
             
+            # Replace the entire cache atomically (prevents partial updates)
+            self.invite_cache[guild.id] = new_cache
+            
             logger.info(f"📊 Cached {len(invites)} invites for {guild.name}")
+            logger.debug(f"🔍 Invite codes cached: {list(new_cache.keys())}")
             
         except discord.Forbidden:
             logger.error(f"❌ Bot lacks permission to view invites for {guild.name}")
