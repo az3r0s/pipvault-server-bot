@@ -400,7 +400,10 @@ class InviteTracker(commands.Cog):
                 await self.cache_guild_invites(guild)
             
             # Get current live invites
-            current_invites = await guild.invites()
+            all_invites = await guild.invites()
+            
+            # Filter to only show invites created by this bot
+            bot_invites = [inv for inv in all_invites if inv.inviter and inv.inviter.id == self.bot.user.id]
             
             embed = discord.Embed(
                 title="🔍 Invite Debug Information",
@@ -412,7 +415,10 @@ class InviteTracker(commands.Cog):
             cache_info = ""
             if guild.id in self.invite_cache:
                 cache_count = len(self.invite_cache[guild.id])
-                cache_info = f"✅ Cache exists with {cache_count} invites"
+                bot_cached = len([code for code, data in self.invite_cache[guild.id].items() 
+                                 if data.get('inviter_id') == self.bot.user.id])
+                cache_info = f"✅ Cache exists with {cache_count} total invites"
+                cache_info += f"\n🤖 {bot_cached} invites created by bot"
                 
                 # If cache was just created, mention it
                 if cache_count > 0:
@@ -426,10 +432,10 @@ class InviteTracker(commands.Cog):
                 inline=False
             )
             
-            # Show live invites vs cached
+            # Show live bot invites vs cached (ALL bot invites, not just first 5)
             live_vs_cache = ""
-            for invite in current_invites[:5]:  # Limit to first 5
-                inviter_name = invite.inviter.name if invite.inviter else "System"
+            for invite in bot_invites:
+                inviter_name = invite.inviter.name if invite.inviter else "Bot"
                 cached_uses = "Not cached"
                 cache_status = "❌"
                 
@@ -441,9 +447,20 @@ class InviteTracker(commands.Cog):
                 live_vs_cache += f"Live: {invite.uses} | Cached: {cached_uses}\n\n"
             
             if live_vs_cache:
+                # Discord field limit is 1024 chars
+                if len(live_vs_cache) > 1024:
+                    # Truncate and show count
+                    live_vs_cache = live_vs_cache[:1000] + f"\n\n... (Showing first invites, {len(bot_invites)} total)"
+                
                 embed.add_field(
-                    name="🔄 Live vs Cached Invites",
-                    value=live_vs_cache[:1024],  # Discord field limit
+                    name=f"🤖 Bot-Created Invites ({len(bot_invites)} total)",
+                    value=live_vs_cache,
+                    inline=False
+                )
+            else:
+                embed.add_field(
+                    name="🤖 Bot-Created Invites",
+                    value="No invites created by this bot found",
                     inline=False
                 )
             
@@ -648,19 +665,35 @@ class InviteTracker(commands.Cog):
                 timestamp=datetime.now()
             )
             
-            # Split into chunks to avoid embed limits
-            chunks = [untracked[i:i+20] for i in range(0, len(untracked), 20)]
+            # Sort by join date (newest first)
+            untracked.sort(key=lambda m: m.joined_at, reverse=True)
             
-            for i, chunk in enumerate(chunks[:3]):  # Show max 3 chunks (60 members)
-                member_list = "\n".join([f"• {m.mention} (`{m.id}`) - Joined {discord.utils.format_dt(m.joined_at, 'R')}" for m in chunk])
+            # Split into smaller chunks to avoid 1024 char limit per field
+            # Each entry is ~80-120 chars, so use 8 members per field to be safe
+            chunks = [untracked[i:i+8] for i in range(0, len(untracked), 8)]
+            
+            # Show max 3 fields (24 members total)
+            for i, chunk in enumerate(chunks[:3]):
+                member_lines = []
+                for m in chunk:
+                    # Shorter format to fit more members
+                    member_lines.append(f"• <@{m.id}> - {discord.utils.format_dt(m.joined_at, 'd')}")
+                
+                member_list = "\n".join(member_lines)
+                
+                # Double-check length (should be under 1024)
+                if len(member_list) > 1024:
+                    # Truncate if somehow still too long
+                    member_list = member_list[:1020] + "..."
+                
                 embed.add_field(
-                    name=f"Members {i*20+1}-{i*20+len(chunk)}",
+                    name=f"Members {i*8+1}-{i*8+len(chunk)} (Newest First)",
                     value=member_list,
                     inline=False
                 )
             
-            if len(untracked) > 60:
-                embed.set_footer(text=f"Showing first 60 of {len(untracked)} untracked members")
+            if len(untracked) > 24:
+                embed.set_footer(text=f"Showing first 24 of {len(untracked)} untracked members. Sorted by join date (newest first).")
             
             embed.add_field(
                 name="📝 How to Recover",
