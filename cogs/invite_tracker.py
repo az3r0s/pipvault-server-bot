@@ -20,18 +20,25 @@ class InviteTracker(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.invite_cache = {}  # Cache of current invites {code: uses}
+        self.cache_backup_path = "data/invite_cache_backup.json"
     
     async def cog_load(self):
         """Called when cog is loaded"""
         logger.info("🔗 Invite Tracker loaded")
         
-        # Cache current invites for all guilds
+        # CRITICAL: Restore invite cache from persistent storage FIRST
+        await self.restore_invite_cache()
+        
+        # Then refresh with live Discord data
         for guild in self.bot.guilds:
             try:
                 await self.cache_guild_invites(guild)
                 logger.info(f"✅ Cached invites for guild: {guild.name}")
             except Exception as e:
                 logger.error(f"❌ Failed to cache invites for {guild.name}: {e}")
+        
+        # Save the restored/refreshed cache
+        await self.backup_invite_cache()
     
     async def cache_guild_invites(self, guild):
         """Cache current invite uses for a guild"""
@@ -46,24 +53,91 @@ class InviteTracker(commands.Cog):
             # Initialize cache for this guild if it doesn't exist
             if guild.id not in self.invite_cache:
                 self.invite_cache[guild.id] = {}
-            else:
-                # Clear existing cache
-                self.invite_cache[guild.id].clear()
             
-            # Cache all invites
+            # Update cache with live invite data (don't clear, merge)
             for invite in invites:
+                # Store inviter ID instead of object for persistence
+                inviter_id = invite.inviter.id if invite.inviter else 0
+                inviter_name = invite.inviter.name if invite.inviter else "System"
+                
                 self.invite_cache[guild.id][invite.code] = {
                     'uses': invite.uses,
-                    'inviter': invite.inviter,
+                    'inviter_id': inviter_id,
+                    'inviter_name': inviter_name,
                     'code': invite.code
                 }
             
             logger.info(f"📊 Cached {len(invites)} invites for {guild.name}")
             
+            # Backup cache after updating
+            await self.backup_invite_cache()
+            
         except discord.Forbidden:
             logger.error(f"❌ Bot lacks permission to view invites for {guild.name}")
         except Exception as e:
             logger.error(f"❌ Error caching invites for {guild.name}: {e}")
+    
+    async def backup_invite_cache(self):
+        """Backup invite cache to persistent JSON file AND cloud"""
+        try:
+            import os
+            import json
+            
+            # Ensure data directory exists
+            os.makedirs(os.path.dirname(self.cache_backup_path) if os.path.dirname(self.cache_backup_path) else "data", exist_ok=True)
+            
+            # Convert cache to serializable format (guild IDs as strings)
+            serializable_cache = {}
+            for guild_id, invites in self.invite_cache.items():
+                serializable_cache[str(guild_id)] = invites
+            
+            # Save to local JSON file (CRITICAL for persistence across redeploys)
+            with open(self.cache_backup_path, 'w') as f:
+                json.dump({
+                    'timestamp': datetime.now().isoformat(),
+                    'cache': serializable_cache
+                }, f, indent=2)
+            
+            logger.info(f"💾 Invite cache backed up to {self.cache_backup_path}")
+            
+            # Also backup to cloud via database
+            try:
+                await self.bot.db.backup_to_cloud()
+            except Exception as cloud_error:
+                logger.warning(f"⚠️ Cloud backup failed but local backup succeeded: {cloud_error}")
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to backup invite cache: {e}")
+    
+    async def restore_invite_cache(self):
+        """Restore invite cache from persistent JSON file"""
+        try:
+            import os
+            import json
+            
+            if not os.path.exists(self.cache_backup_path):
+                logger.info("ℹ️ No invite cache backup found - starting fresh")
+                return
+            
+            # Load from JSON file
+            with open(self.cache_backup_path, 'r') as f:
+                backup_data = json.load(f)
+            
+            # Restore cache (convert guild IDs back to integers)
+            restored_cache = {}
+            for guild_id_str, invites in backup_data.get('cache', {}).items():
+                restored_cache[int(guild_id_str)] = invites
+            
+            self.invite_cache = restored_cache
+            
+            timestamp = backup_data.get('timestamp', 'unknown')
+            logger.info(f"✅ Restored invite cache from backup (timestamp: {timestamp})")
+            logger.info(f"📊 Restored {len(self.invite_cache)} guilds with invite data")
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to restore invite cache: {e}")
+            # Don't fail - just start with empty cache
+            self.invite_cache = {}
     
     @commands.Cog.listener()
     async def on_member_join(self, member):
@@ -182,13 +256,21 @@ class InviteTracker(commands.Cog):
             if guild.id not in self.invite_cache:
                 self.invite_cache[guild.id] = {}
             
+            # Store inviter ID instead of object for persistence
+            inviter_id = invite.inviter.id if invite.inviter else 0
+            inviter_name = invite.inviter.name if invite.inviter else "System"
+            
             self.invite_cache[guild.id][invite.code] = {
                 'uses': invite.uses,
-                'inviter': invite.inviter,
+                'inviter_id': inviter_id,
+                'inviter_name': inviter_name,
                 'code': invite.code
             }
             
-            logger.info(f"🔗 New invite created: {invite.code} by {invite.inviter.name}")
+            logger.info(f"🔗 New invite created: {invite.code} by {inviter_name}")
+            
+            # Backup cache after creating invite
+            await self.backup_invite_cache()
             
         except Exception as e:
             logger.error(f"❌ Error caching new invite: {e}")
@@ -201,6 +283,9 @@ class InviteTracker(commands.Cog):
             if guild.id in self.invite_cache and invite.code in self.invite_cache[guild.id]:
                 del self.invite_cache[guild.id][invite.code]
                 logger.info(f"🗑️ Invite deleted: {invite.code}")
+                
+                # Backup cache after deleting invite
+                await self.backup_invite_cache()
                 
         except Exception as e:
             logger.error(f"❌ Error removing deleted invite: {e}")
@@ -559,159 +644,6 @@ class InviteTracker(commands.Cog):
             
         except Exception as e:
             logger.error(f"❌ Error getting invite stats: {e}")
-            await ctx.send(f"❌ Error: {str(e)}")
-    
-    @commands.hybrid_command(name="sync_member_invites")
-    @commands.has_permissions(administrator=True)
-    async def sync_member_invites(self, ctx):
-        """Reconstruct invite tracking by comparing current member counts with invite usage"""
-        await ctx.send("🔄 Starting intelligent member invite reconstruction... This may take a moment.")
-        
-        try:
-            guild = ctx.guild
-            
-            # Get all guild invites with their full details
-            guild_invites = await guild.invites()
-            
-            # Get staff invite configurations
-            staff_configs = self.bot.db.get_all_staff_configs()
-            staff_invite_map = {config.get('invite_code'): config for config in staff_configs if config.get('invite_code')}
-            
-            # Build report of current vs expected members
-            report_data = []
-            total_synced = 0
-            total_updated = 0
-            
-            for invite in guild_invites:
-                if invite.code not in staff_invite_map:
-                    continue  # Skip non-staff invites
-                
-                staff_config = staff_invite_map[invite.code]
-                staff_id = staff_config.get('staff_id')
-                staff_name = staff_config.get('staff_username', f'Staff {staff_id}')
-                
-                # Get current invite usage from Discord
-                discord_uses = invite.uses or 0
-                
-                # Get tracked members from database for this invite
-                tracked_members = self.bot.db.get_users_by_invite_code(invite.code)
-                tracked_count = len(tracked_members) if tracked_members else 0
-                
-                # Get staff VIP stats
-                staff_stats = self.bot.db.get_staff_vip_stats(staff_id)
-                db_total_invites = staff_stats.get('total_invites', 0) if staff_stats else 0
-                
-                # Calculate discrepancy
-                missing_members = discord_uses - tracked_count
-                
-                report_data.append({
-                    'staff_name': staff_name,
-                    'staff_id': staff_id,
-                    'invite_code': invite.code,
-                    'discord_uses': discord_uses,
-                    'tracked_count': tracked_count,
-                    'db_total': db_total_invites,
-                    'missing': missing_members,
-                    'inviter': invite.inviter
-                })
-                
-                total_synced += tracked_count
-            
-            # Create detailed results embed
-            embed = discord.Embed(
-                title="📊 Invite Tracking Analysis",
-                description="Comparison of Discord invite usage vs database tracking",
-                color=discord.Color.blue(),
-                timestamp=datetime.now()
-            )
-            
-            # Summary statistics
-            total_discord_uses = sum(item['discord_uses'] for item in report_data)
-            total_missing = sum(item['missing'] for item in report_data)
-            
-            embed.add_field(
-                name="� Overall Statistics",
-                value=(
-                    f"**Total Discord Uses:** {total_discord_uses}\n"
-                    f"**Tracked in Database:** {total_synced}\n"
-                    f"**Missing/Untracked:** {total_missing}\n"
-                    f"**Staff Invites Analyzed:** {len(report_data)}"
-                ),
-                inline=False
-            )
-            
-            # Detailed breakdown per staff
-            staff_details = []
-            for item in sorted(report_data, key=lambda x: x['discord_uses'], reverse=True):
-                status_icon = "✅" if item['missing'] == 0 else "⚠️" if item['missing'] < 5 else "❌"
-                staff_details.append(
-                    f"{status_icon} **{item['staff_name']}** (`{item['invite_code']}`)\n"
-                    f"   Discord: {item['discord_uses']} | Tracked: {item['tracked_count']} | Missing: {item['missing']}"
-                )
-            
-            if len(staff_details) <= 7:
-                embed.add_field(
-                    name="👥 Per-Staff Analysis",
-                    value="\n\n".join(staff_details) if staff_details else "No staff invites found",
-                    inline=False
-                )
-            else:
-                # Split into multiple fields
-                mid = len(staff_details) // 2
-                embed.add_field(
-                    name="👥 Per-Staff Analysis (1/2)",
-                    value="\n\n".join(staff_details[:mid]),
-                    inline=False
-                )
-                embed.add_field(
-                    name="👥 Per-Staff Analysis (2/2)",
-                    value="\n\n".join(staff_details[mid:]),
-                    inline=False
-                )
-            
-            # Explanation and recommendations
-            embed.add_field(
-                name="💡 Understanding the Data",
-                value=(
-                    "**Discord Uses**: Total times this invite was used (from Discord API)\n"
-                    "**Tracked**: Members we have recorded in the database\n"
-                    "**Missing**: Discrepancy that may be due to:\n"
-                    "  • Members who left the server\n"
-                    "  • Database was cleared/reset\n"
-                    "  • Bot was offline during joins\n"
-                    "  • Invite was used before tracking started"
-                ),
-                inline=False
-            )
-            
-            if total_missing > 0:
-                embed.add_field(
-                    name="� Next Steps",
-                    value=(
-                        "The missing members represent historical data that cannot be recovered automatically. "
-                        "Going forward, all new joins will be tracked properly.\n\n"
-                        "**Action Items:**\n"
-                        "1. Current members who become VIP will be credited correctly\n"
-                        "2. Run `/update_existing_vips` to credit existing VIP members\n"
-                        "3. Historical invite counts are for reference only"
-                    ),
-                    inline=False
-                )
-            else:
-                embed.add_field(
-                    name="✅ Status",
-                    value="All invite usage is properly tracked! No discrepancies found.",
-                    inline=False
-                )
-            
-            await ctx.send(embed=embed)
-            
-        except discord.Forbidden:
-            await ctx.send("❌ Bot lacks permission to view invites. Please grant 'Manage Server' permission.")
-        except Exception as e:
-            logger.error(f"❌ Error in member invite analysis: {e}")
-            import traceback
-            logger.error(traceback.format_exc())
             await ctx.send(f"❌ Error: {str(e)}")
 
 async def setup(bot):

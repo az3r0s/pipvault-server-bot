@@ -431,6 +431,18 @@ class CloudAPIServerDatabase:
             
             conn.close()
             
+            # CRITICAL: Also backup invite cache from JSON file for complete persistence
+            try:
+                import os
+                cache_path = "data/invite_cache_backup.json"
+                if os.path.exists(cache_path):
+                    with open(cache_path, 'r') as f:
+                        invite_cache_data = json.load(f)
+                    backup_data['invite_cache'] = invite_cache_data
+                    logger.info("📦 Added invite cache to cloud backup")
+            except Exception as cache_error:
+                logger.warning(f"⚠️ Could not add invite cache to backup: {cache_error}")
+            
             # Send to cloud API using discord_data format
             backup_endpoint = f"{self.cloud_base_url}/backup_discord_data"
             payload = {'discord_data': backup_data}
@@ -550,6 +562,20 @@ class CloudAPIServerDatabase:
             
             conn.commit()
             conn.close()
+            
+            # CRITICAL: Also restore invite cache from cloud backup
+            try:
+                import os
+                if 'invite_cache' in backup_data:
+                    cache_path = "data/invite_cache_backup.json"
+                    os.makedirs(os.path.dirname(cache_path) if os.path.dirname(cache_path) else "data", exist_ok=True)
+                    
+                    with open(cache_path, 'w') as f:
+                        json.dump(backup_data['invite_cache'], f, indent=2)
+                    
+                    logger.info("✅ Restored invite cache from cloud backup")
+            except Exception as cache_error:
+                logger.warning(f"⚠️ Could not restore invite cache from cloud: {cache_error}")
             
             logger.info("✅ Successfully restored staff data from cloud API")
             
@@ -997,6 +1023,17 @@ class CloudAPIServerDatabase:
             backup_data['vip_requests'] = vip_requests
             
             conn.close()
+            
+            # CRITICAL: Also include invite cache in immediate backup
+            try:
+                import os
+                cache_path = "data/invite_cache_backup.json"
+                if os.path.exists(cache_path):
+                    with open(cache_path, 'r') as f:
+                        invite_cache_data = json.load(f)
+                    backup_data['invite_cache'] = invite_cache_data
+            except Exception as cache_error:
+                logger.debug(f"No invite cache to backup: {cache_error}")
             
             # Send to cloud API using discord_data format
             backup_endpoint = f"{self.cloud_base_url}/backup_discord_data"
