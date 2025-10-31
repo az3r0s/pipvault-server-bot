@@ -115,6 +115,7 @@ class ZinraiServerBot(commands.Bot):
         cogs_to_load = [
             'cogs.vip_upgrade',
             'cogs.invite_tracker',
+            'cogs.invite_sync',  # New invite sync system
             'cogs.embed_management',
             'cogs.vip_session_manager',
             'cogs.database_export',
