@@ -462,18 +462,29 @@ class InviteTracker(commands.Cog):
             # Show staff invite codes
             staff_invites = self.bot.db.get_all_staff_configs()
             staff_info = ""
-            for staff in staff_invites[:5]:  # Limit to first 5
+            for staff in staff_invites[:25]:  # Show up to 25 staff members (Discord embed limit)
                 username = staff.get('staff_username', 'Unknown')
                 if username is None:
-                    username = 'Unknown'
+                    # Try to get username from Discord member
+                    try:
+                        member = ctx.guild.get_member(staff.get('staff_id'))
+                        if member:
+                            username = member.display_name
+                        else:
+                            username = 'Unknown'
+                    except:
+                        username = 'Unknown'
                 staff_info += f"**{username}**: {staff['invite_code']}\n"
             
             if staff_info:
                 embed.add_field(
-                    name="👥 Staff Invite Codes",
+                    name=f"👥 Staff Invite Codes ({len(staff_invites)} total)",
                     value=staff_info,
                     inline=False
                 )
+            
+            if len(staff_invites) > 25:
+                embed.set_footer(text=f"Showing first 25 of {len(staff_invites)} staff configurations")
             
             await ctx.send(embed=embed)
             
@@ -601,6 +612,69 @@ class InviteTracker(commands.Cog):
             
         except Exception as e:
             logger.error(f"❌ Error updating existing VIPs: {e}")
+            await ctx.send(f"❌ Error: {str(e)}")
+    
+    @commands.hybrid_command(name="list_untracked_members")
+    @commands.has_permissions(administrator=True)
+    async def list_untracked_members(self, ctx):
+        """List all members who don't have invite tracking data (for manual recovery)"""
+        try:
+            guild = ctx.guild
+            
+            # Get all members
+            all_members = guild.members
+            
+            # Get all tracked user IDs from database
+            tracked_members = set()
+            conn = self.bot.db.get_connection()
+            cursor = conn.cursor()
+            cursor.execute('SELECT user_id FROM invite_tracking')
+            for row in cursor.fetchall():
+                tracked_members.add(row[0])
+            conn.close()
+            
+            # Find untracked members (excluding bots)
+            untracked = [m for m in all_members if m.id not in tracked_members and not m.bot]
+            
+            if not untracked:
+                await ctx.send("✅ All members have invite tracking data!")
+                return
+            
+            # Create embed with untracked members
+            embed = discord.Embed(
+                title="📋 Members Without Invite Tracking",
+                description=f"Found {len(untracked)} members without invite attribution",
+                color=discord.Color.orange(),
+                timestamp=datetime.now()
+            )
+            
+            # Split into chunks to avoid embed limits
+            chunks = [untracked[i:i+20] for i in range(0, len(untracked), 20)]
+            
+            for i, chunk in enumerate(chunks[:3]):  # Show max 3 chunks (60 members)
+                member_list = "\n".join([f"• {m.mention} (`{m.id}`) - Joined {discord.utils.format_dt(m.joined_at, 'R')}" for m in chunk])
+                embed.add_field(
+                    name=f"Members {i*20+1}-{i*20+len(chunk)}",
+                    value=member_list,
+                    inline=False
+                )
+            
+            if len(untracked) > 60:
+                embed.set_footer(text=f"Showing first 60 of {len(untracked)} untracked members")
+            
+            embed.add_field(
+                name="📝 How to Recover",
+                value=(
+                    "Use `/manually_record_user_join` to add tracking for these members:\n"
+                    "Example: `/manually_record_user_join @user invite_code @staff_member`"
+                ),
+                inline=False
+            )
+            
+            await ctx.send(embed=embed)
+            
+        except Exception as e:
+            logger.error(f"❌ Error listing untracked members: {e}")
             await ctx.send(f"❌ Error: {str(e)}")
     
     @commands.hybrid_command(name="invite_stats")
