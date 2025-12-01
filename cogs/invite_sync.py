@@ -131,41 +131,49 @@ class InviteSyncExtension:
             sync_messages.append(f"Error during sync: {str(e)}")
         
         return updates, sync_messages
-                
-                if joined_members:
-                    # Store in history
-                    if guild.id not in self.member_join_history:
-                        self.member_join_history[guild.id] = {}
-                    self.member_join_history[guild.id][invite.code] = joined_members
-                    
-                    # Update database records
-                    staff_config = await self.bot.db.get_staff_config_by_invite(invite.code)
-                    if staff_config:
-                        staff_id = staff_config.get('staff_id')
-                        if staff_id:
-                            for member in joined_members:
-                                # Only update if not already tracked
-                                existing = await self.bot.db.get_user_invite(member.id)
-                                if not existing or existing.get('invite_code') != invite.code:
-                                    await self.bot.db.record_user_join(
-                                        user_id=member.id,
-                                        username=str(member),
-                                        invite_code=invite.code,
-                                        inviter_id=staff_id,
-                                        inviter_username=staff_config.get('staff_username', 'Unknown'),
-                                        uses_before=invite.uses - 1,
-                                        uses_after=invite.uses
-                                    )
-                                    updates += 1
-                                    sync_messages.append(
-                                        f"Synced member {member.name} (joined via {invite.code})"
-                                    )
 
-            logger.info(f"✅ Synced {updates} invite joins for {guild.name}")
+    async def _process_member_joins(self, guild, invite, joined_members):
+        """Process member joins for a specific invite"""
+        if not joined_members:
+            return 0, []
+        
+        updates = 0
+        sync_messages = []
+        
+        try:
+            # Store in history
+            if guild.id not in self.member_join_history:
+                self.member_join_history[guild.id] = {}
+            self.member_join_history[guild.id][invite.code] = joined_members
+            
+            # Update database records
+            staff_config = await self.bot.db.get_staff_config_by_invite(invite.code)
+            if staff_config:
+                staff_id = staff_config.get('staff_id')
+                if staff_id:
+                    for member in joined_members:
+                        # Only update if not already tracked
+                        existing = await self.bot.db.get_user_invite(member.id)
+                        if not existing or existing.get('invite_code') != invite.code:
+                            await self.bot.db.record_user_join(
+                                user_id=member.id,
+                                username=str(member),
+                                invite_code=invite.code,
+                                inviter_id=staff_id,
+                                inviter_username=staff_config.get('staff_username', 'Unknown'),
+                                uses_before=invite.uses - 1,
+                                uses_after=invite.uses
+                            )
+                            updates += 1
+                            sync_messages.append(
+                                f"Synced member {member.name} (joined via {invite.code})"
+                            )
+
+            logger.info(f"✅ Processed {updates} joins for invite {invite.code}")
             
         except Exception as e:
-            logger.error(f"❌ Error syncing invite joins: {e}")
-            sync_messages.append(f"Error during sync: {str(e)}")
+            logger.error(f"❌ Error processing member joins: {e}")
+            sync_messages.append(f"Error: {str(e)}")
         
         return updates, sync_messages
 
