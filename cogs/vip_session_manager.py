@@ -99,11 +99,38 @@ class VIPSessionManager(commands.Cog):
             
             # Check if user already has an active session  
             if user_id in self.active_threads:
-                await interaction.response.send_message(
-                    "ℹ️ You already have an active VIP chat session. Please complete your current session first.",
-                    ephemeral=True
-                )
-                return False
+                # Verify the thread is still valid (not archived/expired/deleted)
+                existing_thread = self.active_threads[user_id]
+                try:
+                    # Try to fetch the thread to see if it still exists
+                    thread_obj = await self.bot.fetch_channel(existing_thread.id)
+                    
+                    # Check if thread is archived or deleted
+                    if thread_obj and not thread_obj.archived:
+                        # Thread is valid and active - user cannot create a new session
+                        await interaction.response.send_message(
+                            f"ℹ️ You already have an active VIP chat session: {existing_thread.mention}\n"
+                            f"Please complete your current session first, or type `!end` in that thread to close it.",
+                            ephemeral=True
+                        )
+                        return False
+                    else:
+                        # Thread is archived or no longer accessible - clean up and allow new session
+                        logger.info(f"🧹 Cleaning up expired/archived thread for user {user_id}")
+                        await self._cleanup_session(user_id, reason="Thread expired/archived")
+                        # Continue to create new session below
+                        
+                except discord.NotFound:
+                    # Thread was deleted - clean up and allow new session
+                    logger.info(f"🧹 Cleaning up deleted thread for user {user_id}")
+                    await self._cleanup_session(user_id, reason="Thread not found (deleted)")
+                    # Continue to create new session below
+                    
+                except Exception as e:
+                    # Error fetching thread - clean up to be safe and allow new session
+                    logger.warning(f"⚠️ Error checking existing thread for user {user_id}: {e}")
+                    await self._cleanup_session(user_id, reason=f"Thread check error: {e}")
+                    # Continue to create new session below
             
             # Get available Telegram account
             telegram_manager = get_telegram_manager()
@@ -1720,6 +1747,82 @@ class VIPSessionManager(commands.Cog):
         except Exception as e:
             logger.error(f"❌ Error in regenerate_sessions_command: {e}")
             await ctx.send("❌ An error occurred while displaying session regeneration guide.")
+    
+    @commands.command(name='clear_vip_session')
+    @commands.has_any_role('Staff', 'Admin', 'Support')
+    async def clear_vip_session(self, ctx, user: discord.User):
+        """Manually clear a stuck VIP session for a user
+        
+        Usage: !clear_vip_session @user
+        This will force-remove their session even if the thread is expired/archived
+        """
+        try:
+            user_id = str(user.id)
+            
+            # Check if user has an active session
+            if user_id not in self.active_threads:
+                await ctx.send(f"❌ {user.mention} does not have an active VIP session.")
+                return
+            
+            # Get thread info before cleanup
+            thread = self.active_threads.get(user_id)
+            thread_mention = thread.mention if thread else "Unknown thread"
+            
+            # Force cleanup the session
+            await self._cleanup_session(user_id, reason=f"Manual cleanup by staff {ctx.author.name}")
+            
+            # Send confirmation
+            embed = discord.Embed(
+                title="✅ VIP Session Cleared",
+                description=f"Successfully cleared VIP session for {user.mention}",
+                color=discord.Color.green(),
+                timestamp=discord.utils.utcnow()
+            )
+            
+            embed.add_field(
+                name="📋 Details",
+                value=(
+                    f"**User:** {user.mention}\n"
+                    f"**Thread:** {thread_mention}\n"
+                    f"**Cleared by:** {ctx.author.mention}\n"
+                    f"**Reason:** Manual cleanup - expired/stuck session"
+                ),
+                inline=False
+            )
+            
+            embed.add_field(
+                name="✅ What Happened",
+                value=(
+                    "• Removed from active sessions\n"
+                    "• Released Telegram account\n"
+                    "• Cleared chat history\n"
+                    "• User can now start a new VIP session"
+                ),
+                inline=False
+            )
+            
+            await ctx.send(embed=embed)
+            
+            # Notify user via DM if possible
+            try:
+                user_embed = discord.Embed(
+                    title="🔄 VIP Session Reset",
+                    description=(
+                        f"Your VIP chat session has been manually cleared by staff.\n\n"
+                        f"You can now start a new VIP upgrade session by clicking the **Upgrade to VIP** "
+                        f"button in the VIP upgrade channel."
+                    ),
+                    color=discord.Color.blue()
+                )
+                await user.send(embed=user_embed)
+            except discord.Forbidden:
+                logger.warning(f"Could not send DM to {user.name} about session clearance")
+            
+            logger.info(f"✅ VIP session manually cleared for user {user.name} ({user_id}) by staff {ctx.author.name}")
+            
+        except Exception as e:
+            logger.error(f"❌ Error in clear_vip_session: {e}")
+            await ctx.send(f"❌ An error occurred while clearing the VIP session: {str(e)}")
 
 async def setup(bot):
     await bot.add_cog(VIPSessionManager(bot))

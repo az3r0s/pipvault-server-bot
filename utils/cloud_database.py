@@ -463,8 +463,11 @@ class CloudAPIServerDatabase:
             return
             
         try:
-            # Get data from cloud API
-            restore_endpoint = f"{self.cloud_base_url}/get_discord_data_backup"
+            # Get data from cloud API with cache-busting to force fresh data
+            import time
+            cache_buster = int(time.time())
+            restore_endpoint = f"{self.cloud_base_url}/get_discord_data_backup?t={cache_buster}"
+            logger.info(f"🌐 Restoring from cloud with cache-buster: t={cache_buster}")
             response = requests.get(restore_endpoint, timeout=30)
             
             if response.status_code != 200:
@@ -473,6 +476,25 @@ class CloudAPIServerDatabase:
                 
             response_data = response.json()
             backup_data = response_data.get('discord_data', {})
+            
+            # Validate backup timestamp to detect stale data
+            if 'invite_cache' in backup_data and isinstance(backup_data['invite_cache'], dict):
+                cache_timestamp = backup_data['invite_cache'].get('last_updated')
+                if cache_timestamp:
+                    try:
+                        from datetime import datetime, timedelta
+                        backup_time = datetime.fromisoformat(cache_timestamp.replace('Z', '+00:00'))
+                        age_seconds = (datetime.now(backup_time.tzinfo) - backup_time).total_seconds()
+                        age_minutes = age_seconds / 60
+                        
+                        logger.info(f"📅 Cloud backup age: {age_minutes:.1f} minutes (from {cache_timestamp})")
+                        
+                        if age_minutes > 60:  # Warn if backup is over 1 hour old
+                            logger.warning(f"⚠️ Cloud backup is {age_minutes:.1f} minutes old - may be stale!")
+                        elif age_minutes > 1440:  # Error if over 24 hours
+                            logger.error(f"🔴 Cloud backup is {age_minutes/60:.1f} HOURS old - likely stale data!")
+                    except Exception as ts_error:
+                        logger.warning(f"Could not parse backup timestamp: {ts_error}")
             
             # Restore to local SQLite
             conn = sqlite3.connect(self.db_path)

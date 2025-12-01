@@ -752,6 +752,71 @@ class InviteTracker(commands.Cog):
         except Exception as e:
             logger.error(f"❌ Error getting invite stats: {e}")
             await ctx.send(f"❌ Error: {str(e)}")
+    
+    @commands.hybrid_command(name="manually_record_user_join")
+    @commands.has_permissions(manage_guild=True)
+    async def manually_record_user_join(self, ctx, member: discord.Member, invite_code: str, staff_member: discord.Member):
+        """
+        Manually record that a user joined via a specific staff invite code
+        
+        Use this to recover lost invite tracking data or add tracking for members 
+        who joined before the tracking system was set up.
+        
+        Parameters:
+        - member: The member who joined
+        - invite_code: The Discord invite code they used
+        - staff_member: The staff member who owns the invite
+        """
+        try:
+            # Verify the staff member has an invite config
+            staff_config = self.bot.db.get_staff_config_by_invite(invite_code)
+            
+            if not staff_config:
+                await ctx.send(f"❌ No staff configuration found for invite code `{invite_code}`\n"
+                             f"Please set up {staff_member.mention} with `/add_existing_staff_invite` first")
+                return
+            
+            # Verify the staff member matches
+            if staff_config.get('discord_id') != staff_member.id:
+                await ctx.send(f"⚠️ Warning: Invite code `{invite_code}` belongs to <@{staff_config.get('discord_id')}>, not {staff_member.mention}\n"
+                             f"Proceeding anyway...")
+            
+            # Record the join manually
+            success = self.bot.db.record_user_join_manual(
+                user_id=member.id,
+                username=f"{member.name}#{member.discriminator}",
+                invite_code=invite_code,
+                inviter_id=staff_member.id,
+                inviter_username=f"{staff_member.name}#{staff_member.discriminator}",
+                joined_at=member.joined_at
+            )
+            
+            if success:
+                # CRITICAL: Immediately backup to cloud for deployment persistence
+                try:
+                    await self.bot.db.backup_to_cloud()
+                    logger.info(f"☁️ Manual join record backed up to cloud API for user {member.name}")
+                except Exception as backup_error:
+                    logger.error(f"❌ Failed to backup manual join record to cloud: {backup_error}")
+                
+                embed = discord.Embed(
+                    title="✅ Join Record Added",
+                    description=f"Manually recorded {member.mention}'s join",
+                    color=discord.Color.green(),
+                    timestamp=datetime.now()
+                )
+                embed.add_field(name="Invite Code", value=f"`{invite_code}`", inline=True)
+                embed.add_field(name="Staff Member", value=staff_member.mention, inline=True)
+                embed.add_field(name="Joined At", value=discord.utils.format_dt(member.joined_at), inline=False)
+                
+                await ctx.send(embed=embed)
+                logger.info(f"✅ Manually recorded join for {member.name} via {invite_code} (credited to {staff_member.name})")
+            else:
+                await ctx.send("❌ Failed to record join data")
+                
+        except Exception as e:
+            logger.error(f"❌ Error in manually_record_user_join: {e}")
+            await ctx.send(f"❌ Error: {str(e)}")
 
 async def setup(bot):
     await bot.add_cog(InviteTracker(bot))
