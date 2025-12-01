@@ -1,17 +1,12 @@
 {
+  "$schema": "https://railway.app/railway.schema.json",
   "build": {
-    "commands": [
-      "cd server_bot",
-      "pip install -r requirements.txt"
-    ]
+    "builder": "NIXPACKS",
+    "buildCommand": "pip install -r requirements.txt"
   },
-  "start": {
-    "command": "cd server_bot && python main.py"
-  },
-  "volumes": [
-    {
-      "mountPath": "/app/server_bot/server_management.db",
-      "name": "server_bot_database"
-    }
-  ]
+  "deploy": {
+    "startCommand": "python main.py",
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 10
+  }
 }
